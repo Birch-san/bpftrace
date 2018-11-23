@@ -336,14 +336,14 @@ void CodegenLLVM::visit(Call &call)
       b_.CreateStore(
         b_.CreateAnd(
           b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to fit probe_read_str's null byte
-          0x0000003F), // crude way to stay under 64, our string buffer size. also helps with verifier's bounds checks
+          0x1FFFFFFF), // crude way to stay under 64, our string buffer size. also helps with verifier's bounds checks
         strlen);
     } else {
       b_.CreateStore(b_.getInt64(STRING_SIZE), strlen);
     }
     
-    AllocaInst *buf = b_.CreateAllocaBPF(call.type, "str");
-    b_.CreateMemSet(buf, b_.getInt8(0), call.type.size, 1);
+    AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), b_.CreateLoad(strlen), "str");
+    b_.CreateMemSet(buf, b_.getInt8(0), b_.CreateLoad(strlen), 1);
     call.vargs->front()->accept(*this);
     b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
     b_.CreateLifetimeEnd(strlen);
@@ -447,12 +447,36 @@ void CodegenLLVM::visit(Call &call)
     std::vector<llvm::Type *> elements = { b_.getInt64Ty() }; // printf ID
     String &fmt = static_cast<String&>(*call.vargs->at(0));
 
-    auto &args = std::get<1>(bpftrace_.printf_args_.at(printf_id_));
-    for (Field &arg : args)
+    std::vector<Value *> printfArgValues;
+    for (int i=1; i<call.vargs->size(); i++)
     {
-      llvm::Type *ty = b_.GetType(arg.type);
+      Expression &arg = *call.vargs->at(i);
+      arg.accept(*this);
+      Value *val = expr_;
+      printfArgValues.emplace_back(val);
+      llvm::Type *ty = val->getType();
+      // if (ty->isArrayTy()) {
+
+      // }
       elements.push_back(ty);
     }
+
+    // std::for_each(call.vargs->begin()+1, call.vargs->end(),
+    //   [this,printf_args](auto *arg) {
+    //     arg.accept(*this);
+    //     Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
+    //     if (arg.type.IsArray())
+    //       b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+    //     else
+    //       b_.CreateStore(expr_, offset);
+    //   });
+
+    auto &args = std::get<1>(bpftrace_.printf_args_.at(printf_id_));
+    // for (Field &arg : args)
+    // {
+    //   llvm::Type *ty = b_.GetType(arg.type);
+    //   elements.push_back(ty);
+    // }
     StructType *printf_struct = StructType::create(elements, "printf_t", false);
     int struct_size = layout_.getTypeAllocSize(printf_struct);
 
@@ -467,16 +491,26 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateMemSet(printf_args, b_.getInt8(0), struct_size, 1);
 
     b_.CreateStore(b_.getInt64(printf_id_), printf_args);
-    for (int i=1; i<call.vargs->size(); i++)
+    int i=1;
+    for (Value* value : printfArgValues)
     {
-      Expression &arg = *call.vargs->at(i);
-      arg.accept(*this);
-      Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
-      if (arg.type.IsArray())
-        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i++)});
+      if (value->getType()->isArrayTy())
+        // b_.CREATE_MEMCPY(offset, value, layout_.getTypeAllocSize(value->getArrayElementType())*value->getArrayNumElements(), 1);
+        b_.CREATE_MEMCPY(offset, value, layout_.getTypeAllocSize(value->getType()), 1);
       else
-        b_.CreateStore(expr_, offset);
+        b_.CreateStore(value, offset);
     }
+
+    // std::for_each(call.vargs->begin()+1, call.vargs->end(),
+    //   [this,printf_args](auto *arg) {
+    //     arg.accept(*this);
+    //     Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
+    //     if (arg.type.IsArray())
+    //       b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+    //     else
+    //       b_.CreateStore(expr_, offset);
+    //   });
 
     printf_id_++;
     b_.CreatePerfEventOutput(ctx_, printf_args, struct_size);
