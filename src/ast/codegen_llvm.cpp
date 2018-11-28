@@ -331,6 +331,8 @@ void CodegenLLVM::visit(Call &call)
   {
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
+    // possibly better way to bounds-constrain the integer
+    // https://llvm.org/doxygen/classllvm_1_1ConstantInt.html#a31e8da5adf63afd38b4ab94bca823150
     if (call.vargs->size() > 1) {
       call.vargs->at(1)->accept(*this);
       b_.CreateStore(
@@ -437,6 +439,7 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "printf")
   {
+    // raw_os_ostream llvm_ostream(out);
     /*
      * perf event output has: uint64_t printf_id, vargs
      * The printf_id maps to bpftrace_.printf_args_, and is a way to define the
@@ -455,9 +458,51 @@ void CodegenLLVM::visit(Call &call)
       Value *val = expr_;
       printfArgValues.emplace_back(val);
       llvm::Type *ty = val->getType();
-      // if (ty->isArrayTy()) {
 
-      // }
+      std::cout << "ty:" << ty << std::endl;
+      std::cout << "val->getType():" << val->getType() << std::endl;
+      std::cout << "getTypeAllocSize(ty):" << layout_.getTypeAllocSize(ty) << std::endl;
+      std::cout << "ty->isArrayTy():" << ty->isArrayTy() << std::endl;
+      std::cout << "ty->isPointerTy():" << ty->isPointerTy() << std::endl;
+      std::cout << "ty->isVectorTy():" << ty->isVectorTy() << std::endl;
+      std::cout << "ty->isSized():" << ty->isSized() << std::endl;
+      std::cout << "ty->getScalarSizeInBits():" << ty->getScalarSizeInBits() << std::endl;
+      std::cout << "ty->getTypeID():" << ty->getTypeID() << std::endl;
+
+      std::cout << std::endl;
+
+      std::cout << "getTypeAllocSize(ty->getPointerElementType())):" << layout_.getTypeAllocSize(ty->getPointerElementType()) << std::endl;
+      std::cout << "ty->getPointerElementType()->isArrayTy():" << ty->getPointerElementType()->isArrayTy() << std::endl;
+      std::cout << "ty->getPointerElementType()->isPointerTy():" << ty->getPointerElementType()->isPointerTy() << std::endl;
+      std::cout << "ty->getPointerElementType()->isVectorTy():" << ty->getPointerElementType()->isVectorTy() << std::endl;
+      std::cout << "ty->getPointerElementType()->isSized():" << ty->getPointerElementType()->isSized() << std::endl;
+      std::cout << "ty->getPointerElementType()->getScalarSizeInBits():" << ty->getPointerElementType()->getScalarSizeInBits() << std::endl;
+      std::cout << "ty->getPointerElementType()->getTypeID():" << ty->getPointerElementType()->getTypeID() << std::endl;
+
+      if (ty->isArrayTy()) {
+        std::cout << "ty->getArrayNumElements()" << ty->getArrayNumElements() << std::endl;
+        std::cout << "layout_.getTypeAllocSize(ty->getArrayElementType())" << layout_.getTypeAllocSize(ty->getArrayElementType()) << std::endl;
+      }
+
+      bool siiigh = false;
+      bool& sigh = siiigh;
+      std::cout << "val->getPointerDereferenceableBytes(layout_, false):" << val->getPointerDereferenceableBytes(layout_, sigh) << std::endl;
+      std::cout << "val->getValueID():" << val->getValueID() << std::endl;
+
+      // https://llvm.org/docs/ProgrammersManual.html#the-isa-cast-and-dyn-cast-templates
+      if (auto *valCast = dyn_cast<AllocaInst>(val)) {
+        std::cout << "valCast:" << valCast << std::endl;
+        // auto* arraySize = dyn_cast<ConstantInt>(valCast->getArraySize());
+        if (auto *sizeCast = dyn_cast<ConstantInt>(valCast->getArraySize())) {
+          std::cout << "sizeCast->getZExtValue():" << sizeCast->getZExtValue() << std::endl;
+          std::cout << "sizeCast->getSExtValue():" << sizeCast->getSExtValue() << std::endl;
+        }
+        // std::cout << "valCast->getAllocationSizeInBits(layout_):" << valCast->getAllocationSizeInBits(layout_) << std::endl;
+        std::cout << "valCast->isStaticAlloca():" << valCast->isStaticAlloca() << std::endl; // 0
+        std::cout << "valCast->isUsedWithInAlloca():" << valCast->isUsedWithInAlloca() << std::endl; // 0
+        std::cout << "valCast->isArrayAllocation():" << valCast->isArrayAllocation() << std::endl; // 1
+      }
+
       elements.push_back(ty);
     }
 
@@ -481,17 +526,19 @@ void CodegenLLVM::visit(Call &call)
     int struct_size = layout_.getTypeAllocSize(printf_struct);
 
     auto *struct_layout = layout_.getStructLayout(printf_struct);
-    for (int i=0; i<args.size(); i++)
-    {
-      Field &arg = args[i];
-      arg.offset = struct_layout->getElementOffset(i+1); // +1 for the printf_id field
+    // for (int i=0; i<args.size(); i++)
+    // {
+      // Field &arg = args[i];
+    int i=1; // +1 for the printf_id field
+    for (Field &arg : args) {
+      arg.offset = struct_layout->getElementOffset(i++);
     }
 
     AllocaInst *printf_args = b_.CreateAllocaBPF(printf_struct, "printf_args");
     b_.CreateMemSet(printf_args, b_.getInt8(0), struct_size, 1);
 
     b_.CreateStore(b_.getInt64(printf_id_), printf_args);
-    int i=1;
+    i=1;
     for (Value* value : printfArgValues)
     {
       Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i++)});
