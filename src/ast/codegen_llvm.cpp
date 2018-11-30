@@ -344,11 +344,15 @@ void CodegenLLVM::visit(Call &call)
       b_.CreateStore(b_.getInt64(STRING_SIZE), strlen);
     }
     
-    AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), b_.CreateLoad(strlen), "str");
-    b_.CreateMemSet(buf, b_.getInt8(0), b_.CreateLoad(strlen), 1);
+    Value *strlen_value = b_.CreateLoad(strlen);
+    AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
+    b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
     call.vargs->front()->accept(*this);
-    b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
-    b_.CreateLifetimeEnd(strlen);
+    b_.CreateProbeReadStr(buf, strlen_value, expr_);
+
+    // https://stackoverflow.com/a/9167455/5257399
+    // move-assignment onto unique_ptr does an implicit reset()
+    expr2_ = { strlen_value, [this](auto *val) { b_.CreateLifetimeEnd(val); } };
     expr_ = buf;
   }
   else if (call.func == "kaddr")
@@ -501,6 +505,17 @@ void CodegenLLVM::visit(Call &call)
         std::cout << "valCast->isStaticAlloca():" << valCast->isStaticAlloca() << std::endl; // 0
         std::cout << "valCast->isUsedWithInAlloca():" << valCast->isUsedWithInAlloca() << std::endl; // 0
         std::cout << "valCast->isArrayAllocation():" << valCast->isArrayAllocation() << std::endl; // 1
+
+        ty = ArrayType::get(
+          b_.getInt8Ty(),
+          // ConstantInt::get(
+          //   module_->getContext(),
+          //   expr2_
+          //   )
+          cast<ConstantInt>(expr2_.get())->getZExtValue()
+          );
+
+        expr2_.reset();
       }
 
       elements.push_back(ty);
