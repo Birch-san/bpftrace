@@ -146,6 +146,17 @@ int main(int argc, char *argv[])
   bpftrace.join_argnum_ = 16;
   bpftrace.join_argsize_ = 1024;
 
+  bpftrace.printf_arg_strlen_ = 64;
+  if(const char* env_p = std::getenv("BPFTRACE_PRINTF_ARG_STRLEN")) {
+    uint64_t proposed;
+    std::istringstream stringstream(env_p);
+    if (!(stringstream >> proposed)) {
+      std::cerr << "Env var 'BPFTRACE_PRINTF_ARG_STRLEN' did not contain a valid uint64_t, or was zero-valued." << std::endl;
+      return 1;
+    }
+    bpftrace.printf_arg_strlen_ = proposed;
+  }
+
   // PID is currently only used for USDT probes that need enabling. Future work:
   // - make PID a filter for all probe types: pass to perf_event_open(), etc.
   // - provide PID in USDT probe specification as a way to override -p.

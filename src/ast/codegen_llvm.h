@@ -66,7 +66,7 @@ private:
   IRBuilderBPF b_;
   DataLayout layout_;
   Value *expr_ = nullptr;
-  std::unique_ptr<Value, std::function<void(Value*)>> expr2_; // intentionally empty
+  std::function<void()> expr_deleter_; // intentionally empty
   Value *ctx_;
   AttachPoint *current_attach_point_ = nullptr;
   BPFtrace &bpftrace_;

@@ -331,17 +331,15 @@ void CodegenLLVM::visit(Call &call)
   {
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
-    // possibly better way to bounds-constrain the integer
-    // https://llvm.org/doxygen/classllvm_1_1ConstantInt.html#a31e8da5adf63afd38b4ab94bca823150
     if (call.vargs->size() > 1) {
       call.vargs->at(1)->accept(*this);
       b_.CreateStore(
         b_.CreateAnd(
-          b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to fit probe_read_str's null byte
-          0x1FFFFFFF), // crude way to stay under 64, our string buffer size. also helps with verifier's bounds checks
+          b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to accommodate probe_read_str's null byte
+          0x1FFFFFFF), // helps with verifier's bounds checks
         strlen);
     } else {
-      b_.CreateStore(b_.getInt64(STRING_SIZE), strlen);
+      b_.CreateStore(b_.getInt64(bpftrace_.printf_arg_strlen_), strlen);
     }
     
     Value *strlen_value = b_.CreateLoad(strlen);
@@ -349,11 +347,10 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
     call.vargs->front()->accept(*this);
     b_.CreateProbeReadStr(buf, strlen_value, expr_);
+    b_.CreateLifetimeEnd(strlen);
 
-    // https://stackoverflow.com/a/9167455/5257399
-    // move-assignment onto unique_ptr does an implicit reset()
-    expr2_ = { strlen_value, [this](auto *val) { b_.CreateLifetimeEnd(val); } };
     expr_ = buf;
+    expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
   }
   else if (call.func == "kaddr")
   {
@@ -443,156 +440,52 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "printf")
   {
-    // raw_os_ostream llvm_ostream(out);
     /*
      * perf event output has: uint64_t printf_id, vargs
      * The printf_id maps to bpftrace_.printf_args_, and is a way to define the
      * types and offsets of each of the arguments, and share that between BPF and
      * user-space for printing.
      */
-    ArrayType *string_type = ArrayType::get(b_.getInt8Ty(), STRING_SIZE);
     std::vector<llvm::Type *> elements = { b_.getInt64Ty() }; // printf ID
     String &fmt = static_cast<String&>(*call.vargs->at(0));
 
-    std::vector<Value *> printfArgValues;
-    for (int i=1; i<call.vargs->size(); i++)
+    auto &args = std::get<1>(bpftrace_.printf_args_.at(printf_id_));
+    for (Field &arg : args)
     {
-      Expression &arg = *call.vargs->at(i);
-      arg.accept(*this);
-      Value *val = expr_;
-      printfArgValues.emplace_back(val);
-      llvm::Type *ty = val->getType();
-
-      std::cout << "ty:" << ty << std::endl;
-      std::cout << "val->getType():" << val->getType() << std::endl;
-      std::cout << "getTypeAllocSize(ty):" << layout_.getTypeAllocSize(ty) << std::endl;
-      std::cout << "ty->isArrayTy():" << ty->isArrayTy() << std::endl;
-      std::cout << "ty->isPointerTy():" << ty->isPointerTy() << std::endl;
-      std::cout << "ty->isVectorTy():" << ty->isVectorTy() << std::endl;
-      std::cout << "ty->isSized():" << ty->isSized() << std::endl;
-      std::cout << "ty->getScalarSizeInBits():" << ty->getScalarSizeInBits() << std::endl;
-      std::cout << "ty->getTypeID():" << ty->getTypeID() << std::endl;
-
-      std::cout << std::endl;
-
-      std::cout << "getTypeAllocSize(ty->getPointerElementType())):" << layout_.getTypeAllocSize(ty->getPointerElementType()) << std::endl;
-      std::cout << "ty->getPointerElementType()->isArrayTy():" << ty->getPointerElementType()->isArrayTy() << std::endl;
-      std::cout << "ty->getPointerElementType()->isPointerTy():" << ty->getPointerElementType()->isPointerTy() << std::endl;
-      std::cout << "ty->getPointerElementType()->isVectorTy():" << ty->getPointerElementType()->isVectorTy() << std::endl;
-      std::cout << "ty->getPointerElementType()->isSized():" << ty->getPointerElementType()->isSized() << std::endl;
-      std::cout << "ty->getPointerElementType()->getScalarSizeInBits():" << ty->getPointerElementType()->getScalarSizeInBits() << std::endl;
-      std::cout << "ty->getPointerElementType()->getTypeID():" << ty->getPointerElementType()->getTypeID() << std::endl;
-
-      if (ty->isArrayTy()) {
-        std::cout << "ty->getArrayNumElements()" << ty->getArrayNumElements() << std::endl;
-        std::cout << "layout_.getTypeAllocSize(ty->getArrayElementType())" << layout_.getTypeAllocSize(ty->getArrayElementType()) << std::endl;
-      }
-
-      bool siiigh = false;
-      bool& sigh = siiigh;
-      std::cout << "val->getPointerDereferenceableBytes(layout_, false):" << val->getPointerDereferenceableBytes(layout_, sigh) << std::endl;
-      std::cout << "val->getValueID():" << val->getValueID() << std::endl;
-
-      // https://llvm.org/docs/ProgrammersManual.html#the-isa-cast-and-dyn-cast-templates
-      if (auto *valCast = dyn_cast<AllocaInst>(val)) {
-        std::cout << "valCast:" << valCast << std::endl;
-        std::cout << "layout_.getTypeAllocSize(valCast->getType()):" << layout_.getTypeAllocSize(valCast->getType()) << std::endl;
-        std::cout << "valCast->getType():" << valCast->getType() << std::endl;
-        std::cout << "valCast->getType()->isArrayTy():" << valCast->getType()->isArrayTy() << std::endl;
-        if (ty->isArrayTy()) {
-          std::cout << "valCast->getType()->getArrayNumElements()" << valCast->getType()->getArrayNumElements() << std::endl;
-          std::cout << "layout_.getTypeAllocSize(valCast->getType()->getArrayElementType())" << layout_.getTypeAllocSize(valCast->getType()->getArrayElementType()) << std::endl;
-        }
-        std::cout << "valCast->getType()->isPointerTy():" << valCast->getType()->isPointerTy() << std::endl;
-        std::cout << "valCast->getType()->isVectorTy():" << valCast->getType()->isVectorTy() << std::endl;
-        std::cout << "valCast->getType()->getScalarSizeInBits():" << valCast->getType()->getScalarSizeInBits() << std::endl;
-        std::cout << "valCast->getType()->getTypeID():" << valCast->getType()->getTypeID() << std::endl;
-        std::cout << "valCast->getType()->isSized():" << valCast->getType()->isSized() << std::endl;
-        if (auto *typeCast = dyn_cast<ArrayType>(valCast->getType())) {
-          std::cout << "layout_.getTypeAllocSize(typeCast):" << layout_.getTypeAllocSize(typeCast) << std::endl;
-          std::cout << "typeCast->getArrayNumElements():" << typeCast->getArrayNumElements() << std::endl;
-        }
-        // auto* arraySize = dyn_cast<ConstantInt>(valCast->getArraySize());
-        if (auto *sizeCast = dyn_cast<ConstantInt>(valCast->getArraySize())) {
-          std::cout << "sizeCast->getZExtValue():" << sizeCast->getZExtValue() << std::endl;
-          std::cout << "sizeCast->getSExtValue():" << sizeCast->getSExtValue() << std::endl;
-        }
-        // std::cout << "valCast->getAllocationSizeInBits(layout_):" << valCast->getAllocationSizeInBits(layout_) << std::endl;
-        // std::cout << "valCast->getAllocationSizeInBits(layout_)->hasValue():" << valCast->getAllocationSizeInBits(layout_)->hasValue() << std::endl;
-        // std::cout << "valCast->getArraySize():" << valCast->getArraySize() << std::endl; // 0
-        std::cout << "valCast->isStaticAlloca():" << valCast->isStaticAlloca() << std::endl; // 0
-        std::cout << "valCast->isUsedWithInAlloca():" << valCast->isUsedWithInAlloca() << std::endl; // 0
-        std::cout << "valCast->isArrayAllocation():" << valCast->isArrayAllocation() << std::endl; // 1
-
-        // ty = ArrayType::get(
-        //   b_.getInt8Ty(),
-        //   // ConstantInt::get(
-        //   //   module_->getContext(),
-        //   //   expr2_
-        //   //   )
-        //   cast<ConstantInt>(expr2_.get())->getZExtValue()
-        //   );
-
-        expr2_.reset();
-      }
-
+      llvm::Type *ty = b_.GetType(arg.type);
       elements.push_back(ty);
     }
-
-    // std::for_each(call.vargs->begin()+1, call.vargs->end(),
-    //   [this,printf_args](auto *arg) {
-    //     arg.accept(*this);
-    //     Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
-    //     if (arg.type.IsArray())
-    //       b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
-    //     else
-    //       b_.CreateStore(expr_, offset);
-    //   });
-
-    auto &args = std::get<1>(bpftrace_.printf_args_.at(printf_id_));
-    // for (Field &arg : args)
-    // {
-    //   llvm::Type *ty = b_.GetType(arg.type);
-    //   elements.push_back(ty);
-    // }
     StructType *printf_struct = StructType::create(elements, "printf_t", false);
     int struct_size = layout_.getTypeAllocSize(printf_struct);
+    std::cerr << "struct_size: " << struct_size << std::endl;
 
     auto *struct_layout = layout_.getStructLayout(printf_struct);
-    // for (int i=0; i<args.size(); i++)
-    // {
-      // Field &arg = args[i];
-    int i=1; // +1 for the printf_id field
-    for (Field &arg : args) {
-      arg.offset = struct_layout->getElementOffset(i++);
+    for (int i=0; i<args.size(); i++)
+    {
+      Field &arg = args[i];
+      arg.offset = struct_layout->getElementOffset(i+1); // +1 for the printf_id field
     }
 
     AllocaInst *printf_args = b_.CreateAllocaBPF(printf_struct, "printf_args");
     b_.CreateMemSet(printf_args, b_.getInt8(0), struct_size, 1);
 
     b_.CreateStore(b_.getInt64(printf_id_), printf_args);
-    i=1;
-    for (Value* value : printfArgValues)
+    for (int i=1; i<call.vargs->size(); i++)
     {
-      Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i++)});
-      if (value->getType()->isArrayTy()
-        || value->getType()->isPointerTy()) {
-        // // b_.CREATE_MEMCPY(offset, value, layout_.getTypeAllocSize(value->getArrayElementType())*value->getArrayNumElements(), 1);
-        b_.CREATE_MEMCPY(offset, value, layout_.getTypeAllocSize(value->getType()), 1);
+      Expression &arg = *call.vargs->at(i);
+      expr_deleter_ = nullptr;
+      arg.accept(*this);
+      Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
+      if (arg.type.IsArray()) {
+        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
       } else {
-        b_.CreateStore(value, offset);
+        b_.CreateStore(expr_, offset);
+      }
+
+      if (expr_deleter_) {
+        expr_deleter_();
       }
     }
-
-    // std::for_each(call.vargs->begin()+1, call.vargs->end(),
-    //   [this,printf_args](auto *arg) {
-    //     arg.accept(*this);
-    //     Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
-    //     if (arg.type.IsArray())
-    //       b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
-    //     else
-    //       b_.CreateStore(expr_, offset);
-    //   });
 
     printf_id_++;
     b_.CreatePerfEventOutput(ctx_, printf_args, struct_size);
@@ -635,12 +528,17 @@ void CodegenLLVM::visit(Call &call)
     for (int i=1; i<call.vargs->size(); i++)
     {
       Expression &arg = *call.vargs->at(i);
+      expr_deleter_ = nullptr;
       arg.accept(*this);
       Value *offset = b_.CreateGEP(system_args, {b_.getInt32(0), b_.getInt32(i)});
       if (arg.type.IsArray())
         b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
       else
         b_.CreateStore(expr_, offset);
+
+      if (expr_deleter_) {
+        expr_deleter_();
+      }
     }
 
     system_id_++;
