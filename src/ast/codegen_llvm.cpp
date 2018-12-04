@@ -336,17 +336,21 @@ void CodegenLLVM::visit(Call &call)
       b_.CreateStore(
         b_.CreateAnd(
           b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to accommodate probe_read_str's null byte
-          0x1FFFFFFF), // helps with verifier's bounds checks
+          // 0x1FFFFFFF), // helps with verifier's bounds checks
+          0x0000003F), // helps with verifier's bounds checks
         strlen);
     } else {
       b_.CreateStore(b_.getInt64(bpftrace_.printf_arg_strlen_), strlen);
     }
     
-    Value *strlen_value = b_.CreateLoad(strlen);
-    AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
-    b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
+    // Value *strlen_value = b_.CreateLoad(strlen);
+    // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
+    AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str");
+    // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
+    b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
     call.vargs->front()->accept(*this);
-    b_.CreateProbeReadStr(buf, strlen_value, expr_);
+    // b_.CreateProbeReadStr(buf, strlen_value, expr_);
+    b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = buf;
