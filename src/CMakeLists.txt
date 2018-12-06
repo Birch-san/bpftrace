@@ -7,6 +7,7 @@ add_executable(bpftrace
   main.cpp
   map.cpp
   mapkey.cpp
+  map_factory.cpp
   printf.cpp
   resolve_cgroupid.cpp
   tracepoint_format_parser.cpp

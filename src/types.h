@@ -33,6 +33,7 @@ enum class Type
   join,
   probe,
   username,
+  str_call,
 };
 
 std::ostream &operator<<(std::ostream &os, Type type);

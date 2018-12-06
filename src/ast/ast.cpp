@@ -1,8 +1,14 @@
 #include "ast.h"
 #include "parser.tab.hh"
+#include "libbpf.h"
 
 namespace bpftrace {
 namespace ast {
+
+StrCall::StrCall(const Call &call, const IMap& map)
+: call(call)
+, map(map)
+{ }
 
 void Integer::accept(Visitor &v) {
   v.visit(*this);
@@ -13,6 +19,10 @@ void String::accept(Visitor &v) {
 }
 
 void Builtin::accept(Visitor &v) {
+  v.visit(*this);
+}
+
+void StrCall::accept(Visitor &v) {
   v.visit(*this);
 }
 

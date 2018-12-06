@@ -1,5 +1,6 @@
 #include "semantic_analyser.h"
 #include "ast.h"
+#include "map_factory.h"
 #include "fake_map.h"
 #include "parser.tab.hh"
 #include "printf.h"
@@ -203,18 +204,12 @@ void SemanticAnalyser::visit(Call &call)
     call.type = SizedType(Type::none, 0);
   }
   else if (call.func == "str") {
-    if (check_varargs(call, 1, 2)) {
-      check_arg(call, Type::integer, 0);
-      if (is_final_pass()) {
-        uint64_t strlen = bpftrace_.printf_arg_strlen_;
-        if (call.vargs->size() > 1) {
-          check_arg(call, Type::integer, 1, false);
-          auto &strlen_arg = *call.vargs->at(1);
-          if (strlen_arg.is_literal) {
-            strlen = static_cast<Integer&>(strlen_arg).n;
-          }
-        }
-        call.type = SizedType(Type::string, strlen);
+    if (call.delegate == nullptr) {
+      std::unique_ptr<IMap> map = MapFactory.constructMapForStoringBigStringsOffStack(bpftrace_.printf_arg_strlen_);
+      if (map->mapfd_ < 0) {
+        err_ << "Error creating map: '" << map->name_ << "'" << std::endl;
+      } else {
+        call.delegate = std::make_unique<StrCall>(call, map);
       }
     }
   }
@@ -354,6 +349,26 @@ void SemanticAnalyser::visit(Call &call)
   else {
     err_ << "Unknown function: '" << call.func << "'" << std::endl;
     call.type = SizedType(Type::none, 0);
+  }
+}
+
+void SemanticAnalyser::visit(const StrCall &str_call)
+{
+  const Call& call = str_call.call;
+  const &IMap map = MapFactory.constructMapForStoringBigStringsOffStack(bpftrace_.printf_arg_strlen_);
+  if (check_varargs(call, 1, 2)) {
+    check_arg(call, Type::integer, 0);
+    if (is_final_pass()) {
+      uint64_t strlen = bpftrace_.printf_arg_strlen_;
+      if (call.vargs->size() > 1) {
+        check_arg(call, Type::integer, 1, false);
+        auto &strlen_arg = *call.vargs->at(1);
+        if (strlen_arg.is_literal) {
+          strlen = static_cast<Integer&>(strlen_arg).n;
+        }
+      }
+      call.type = SizedType(Type::string, strlen);
+    }
   }
 }
 

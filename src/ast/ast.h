@@ -2,9 +2,11 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <map>
 
 #include "types.h"
+#include "imap.h"
 
 namespace bpftrace {
 namespace ast {
@@ -15,6 +17,7 @@ class Node {
 public:
   virtual ~Node() { }
   virtual void accept(Visitor &v) = 0;
+  std::unique_ptr<Node> delegate_;
 };
 
 class Map;
@@ -64,6 +67,15 @@ public:
 
   void accept(Visitor &v) override;
 };
+
+class StrCall : public Node {
+public:
+  StrCall(const Call &call, std::unique_ptr<IMap> map);
+  Call& call;
+  std::unique_ptr<IMap> map;
+  
+  void accept(Visitor &v) override;
+}
 
 class Map : public Expression {
 public:

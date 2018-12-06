@@ -327,54 +327,6 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(key);
     expr_ = nullptr;
   }
-  else if (call.func == "str")
-  {
-    AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
-    b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
-    if (call.vargs->size() > 1) {
-      call.vargs->at(1)->accept(*this);
-      Value *proposed_strlen = b_.CreateAdd(expr_, b_.getInt64(1)); // add 1 to accommodate probe_read_str's null byte
-      // Value *max = b_.getInt64(0x0000003F);
-      Value *max = b_.getInt64(bpftrace_.printf_arg_strlen_);
-      CmpInst::Predicate P = CmpInst::ICMP_ULE;
-      Value *Cmp = b_.CreateICmp(P, proposed_strlen, max, "str.min.cmp");
-      Value *Select = b_.CreateSelect(Cmp, proposed_strlen, max, "str.min.select");
-      b_.CreateStore(Select, strlen);
-      // b_.CreateStore(
-      //   b_.CreateAnd(
-      //     b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to accommodate probe_read_str's null byte
-      //     // 0x1FFFFFFF), // helps with verifier's bounds checks
-      //     0x0000003F), // helps with verifier's bounds checks
-      //   strlen);
-    } else {
-      b_.CreateStore(b_.getInt64(bpftrace_.printf_arg_strlen_), strlen);
-    }
-
-    /*
-    BPFTRACE_PRINTF_ARG_STRLEN=1024
-    error: <unknown>:0:0: in function tracepoint:syscalls:sys_enter_write i64 (i8*): A call to built-in function 'memset' is not supported.
-
-    BPFTRACE_PRINTF_ARG_STRLEN=512
-    error: <unknown>:0:0: in function tracepoint:syscalls:sys_enter_write i64 (i8*): Looks like the BPF stack limit of 512 bytes is exceeded. Please move large on stack variables into BPF per-cpu array map.
-
-    BPFTRACE_PRINTF_ARG_STRLEN=240
-    this was the largest I was able to push it to
-    probably we dip into our budget twice when we allocate the printf struct
-    */
-    
-    Value *strlen_value = b_.CreateLoad(strlen);
-    // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
-    AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
-    // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
-    b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
-    call.vargs->front()->accept(*this);
-    // b_.CreateProbeReadStr(buf, strlen_value, expr_);
-    b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
-    b_.CreateLifetimeEnd(strlen);
-
-    expr_ = buf;
-    expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
-  }
   else if (call.func == "kaddr")
   {
     uint64_t addr;
@@ -674,6 +626,56 @@ void CodegenLLVM::visit(Call &call)
     std::cerr << "Error: missing codegen for function \"" << call.func << "\"" << std::endl;
     abort();
   }
+}
+
+void CodegenLLVM::visit(StrCall &str_call)
+{
+  const Call& call = str_call.call;
+  AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
+  b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
+  if (call.vargs->size() > 1) {
+    call.vargs->at(1)->accept(*this);
+    Value *proposed_strlen = b_.CreateAdd(expr_, b_.getInt64(1)); // add 1 to accommodate probe_read_str's null byte
+    // Value *max = b_.getInt64(0x0000003F);
+    Value *max = b_.getInt64(bpftrace_.printf_arg_strlen_);
+    CmpInst::Predicate P = CmpInst::ICMP_ULE;
+    Value *Cmp = b_.CreateICmp(P, proposed_strlen, max, "str.min.cmp");
+    Value *Select = b_.CreateSelect(Cmp, proposed_strlen, max, "str.min.select");
+    b_.CreateStore(Select, strlen);
+    // b_.CreateStore(
+    //   b_.CreateAnd(
+    //     b_.CreateAdd(expr_, b_.getInt64(1)), // add 1 to accommodate probe_read_str's null byte
+    //     // 0x1FFFFFFF), // helps with verifier's bounds checks
+    //     0x0000003F), // helps with verifier's bounds checks
+    //   strlen);
+  } else {
+    b_.CreateStore(b_.getInt64(bpftrace_.printf_arg_strlen_), strlen);
+  }
+
+  /*
+  BPFTRACE_PRINTF_ARG_STRLEN=1024
+  error: <unknown>:0:0: in function tracepoint:syscalls:sys_enter_write i64 (i8*): A call to built-in function 'memset' is not supported.
+
+  BPFTRACE_PRINTF_ARG_STRLEN=512
+  error: <unknown>:0:0: in function tracepoint:syscalls:sys_enter_write i64 (i8*): Looks like the BPF stack limit of 512 bytes is exceeded. Please move large on stack variables into BPF per-cpu array map.
+
+  BPFTRACE_PRINTF_ARG_STRLEN=240
+  this was the largest I was able to push it to
+  probably we dip into our budget twice when we allocate the printf struct
+  */
+  
+  Value *strlen_value = b_.CreateLoad(strlen);
+  // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
+  AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
+  // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
+  b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
+  call.vargs->front()->accept(*this);
+  // b_.CreateProbeReadStr(buf, strlen_value, expr_);
+  b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
+  b_.CreateLifetimeEnd(strlen);
+
+  expr_ = buf;
+  expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
 }
 
 void CodegenLLVM::visit(Map &map)
