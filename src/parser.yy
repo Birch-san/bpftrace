@@ -24,6 +24,7 @@ class Node;
 } // namespace ast
 } // namespace bpftrace
 #include "ast.h"
+#include "call_factory.h"
 }
 
 %{

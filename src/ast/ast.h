@@ -60,8 +60,8 @@ public:
 
 class Call : public Expression {
 public:
-  explicit Call(std::string &func) : func(func), vargs(nullptr) { }
-  Call(std::string &func, ExpressionList *vargs) : func(func), vargs(vargs) { }
+  explicit Call(std::string &func, ExpressionList *vargs = nullptr) : func(func), vargs(nullptr) { }
+  Call(std::string &func) : func(func), vargs(vargs) { }
   std::string func;
   ExpressionList *vargs;
 
