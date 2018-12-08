@@ -6,18 +6,22 @@
 #include <map>
 
 #include "types.h"
-#include "imap.h"
 
 namespace bpftrace {
 namespace ast {
 
 class Visitor;
-
-class Node {
+class INode {
 public:
-  virtual ~Node() { }
-  virtual void accept(Visitor &v) = 0;
-  std::unique_ptr<Node> delegate_;
+  virtual ~INode() { }
+  virtual void accept(Visitor &v) = 0;  
+}
+
+class Node : public INode {
+public:
+  virtual ~Node();
+  virtual void accept(Visitor &v);
+  std::unique_ptr<INode> delegate;
 };
 
 class Map;
@@ -68,13 +72,13 @@ public:
   void accept(Visitor &v) override;
 };
 
-class StrCall : public Node {
+class StrCall : public INode {
+  friend class Visitor;
 public:
-  StrCall(const Call &call, std::unique_ptr<IMap> map);
-  Call& call;
-  std::unique_ptr<IMap> map;
-  
-  void accept(Visitor &v) override;
+  explicit StrCall(const Call &call, const IMap& map);
+private:
+  const Call &call;
+  const IMap map;
 }
 
 class Map : public Expression {

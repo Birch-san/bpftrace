@@ -327,6 +327,11 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(key);
     expr_ = nullptr;
   }
+  else if (call.func == "str")
+  {
+    static_cast<StrCall>(call.delegate)
+    ->accept(*this);
+  }
   else if (call.func == "kaddr")
   {
     uint64_t addr;
@@ -627,6 +632,7 @@ void CodegenLLVM::visit(Call &call)
     abort();
   }
 }
+
 
 void CodegenLLVM::visit(StrCall &str_call)
 {

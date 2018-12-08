@@ -1,6 +1,5 @@
 add_library(ast
   ast.cpp
-  call_factory.cpp
   codegen_llvm.cpp
   irbuilderbpf.cpp
   printer.cpp

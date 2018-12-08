@@ -22,7 +22,6 @@ public:
   void visit(String &string) override;
   void visit(Builtin &builtin) override;
   void visit(Call &call) override;
-  void visit(const StrCall &str_call) override;
   void visit(Map &map) override;
   void visit(Variable &var) override;
   void visit(Binop &binop) override;
