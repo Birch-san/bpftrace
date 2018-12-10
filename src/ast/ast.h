@@ -6,6 +6,7 @@
 #include <map>
 
 #include "types.h"
+#include "imap.h"
 
 namespace bpftrace {
 namespace ast {
@@ -14,13 +15,13 @@ class Visitor;
 class INode {
 public:
   virtual ~INode() { }
-  virtual void accept(Visitor &v) = 0;  
-}
+  virtual void accept(Visitor &v) = 0;
+};
 
 class Node : public INode {
 public:
   virtual ~Node();
-  virtual void accept(Visitor &v);
+  virtual void accept(Visitor &v) override;
   std::unique_ptr<INode> delegate;
 };
 
@@ -64,8 +65,7 @@ public:
 
 class Call : public Expression {
 public:
-  explicit Call(std::string &func, ExpressionList *vargs = nullptr) : func(func), vargs(nullptr) { }
-  Call(std::string &func) : func(func), vargs(vargs) { }
+  explicit Call(std::string &func, ExpressionList *vargs = nullptr);
   std::string func;
   ExpressionList *vargs;
 
@@ -76,10 +76,12 @@ class StrCall : public INode {
   friend class Visitor;
 public:
   explicit StrCall(const Call &call, const IMap& map);
+
+  virtual void accept(Visitor &v) override;
 private:
   const Call &call;
   const IMap map;
-}
+};
 
 class Map : public Expression {
 public:
@@ -279,6 +281,7 @@ public:
   virtual void visit(String &string) = 0;
   virtual void visit(Builtin &builtin) = 0;
   virtual void visit(Call &call) = 0;
+  virtual void visit(StrCall &str_call) = 0;
   virtual void visit(Map &map) = 0;
   virtual void visit(Variable &var) = 0;
   virtual void visit(Binop &binop) = 0;

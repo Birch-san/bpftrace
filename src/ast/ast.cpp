@@ -5,6 +5,11 @@
 namespace bpftrace {
 namespace ast {
 
+Call::Call(std::string &func, ExpressionList *vargs)
+: func(func)
+, vargs(vargs)
+{ }
+
 StrCall::StrCall(const Call &call, const IMap& map)
 : call(call)
 , map(map)

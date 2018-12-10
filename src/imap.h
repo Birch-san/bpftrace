@@ -5,16 +5,16 @@
 #include "mapkey.h"
 #include "types.h"
 
-#include "libbpf.h"
-
 namespace bpftrace {
 
 class IMap {
 public:
   virtual ~IMap() { }
   IMap() { }
-  IMap(const IMap &) = delete;
-  IMap& operator=(const IMap &) = delete;
+  IMap(IMap &&) = default;
+  IMap& operator=(IMap &&) = default;
+  IMap(const IMap &) = default;
+  IMap& operator=(const IMap &) = default;
 
   int mapfd_;
   std::string name_;

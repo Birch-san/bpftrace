@@ -9,6 +9,6 @@ public:
 private:
   static int call_count_;
   int call_id_;
-}
+};
 
 }
