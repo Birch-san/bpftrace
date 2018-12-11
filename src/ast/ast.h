@@ -11,6 +11,9 @@
 namespace bpftrace {
 namespace ast {
 
+// forward-declare CodegenLLVM, so that we can refer to it as a friend class without pulling in the whole header (which would introduce circular dependency)
+class CodegenLLVM;
+
 class Visitor;
 class INode {
 public:
@@ -22,7 +25,7 @@ class Node : public INode {
 public:
   virtual ~Node();
   virtual void accept(Visitor &v) override;
-  std::unique_ptr<INode> delegate;
+  std::shared_ptr<INode> delegate;
 };
 
 class Map;
@@ -73,14 +76,14 @@ public:
 };
 
 class StrCall : public INode {
-  friend class Visitor;
+  friend class CodegenLLVM;
 public:
-  explicit StrCall(const Call &call, const IMap& map);
+  explicit StrCall(const Call &call, std::unique_ptr<IMap> map);
 
   virtual void accept(Visitor &v) override;
 private:
   const Call &call;
-  const IMap map;
+  std::unique_ptr<IMap> map;
 };
 
 class Map : public Expression {

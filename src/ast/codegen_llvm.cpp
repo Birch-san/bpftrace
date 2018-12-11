@@ -329,7 +329,7 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "str")
   {
-    static_cast<StrCall>(call.delegate)
+    std::static_pointer_cast<StrCall>(call.delegate)
     ->accept(*this);
   }
   else if (call.func == "kaddr")

@@ -11,10 +11,8 @@ class IMap {
 public:
   virtual ~IMap() { }
   IMap() { }
-  IMap(IMap &&) = default;
-  IMap& operator=(IMap &&) = default;
-  IMap(const IMap &) = default;
-  IMap& operator=(const IMap &) = default;
+  IMap(const IMap &) = delete;
+  IMap& operator=(const IMap &) = delete;
 
   int mapfd_;
   std::string name_;

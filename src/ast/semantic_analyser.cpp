@@ -220,7 +220,7 @@ void SemanticAnalyser::visit(Call &call)
         if (map->mapfd_ < 0) {
           err_ << "Error creating map: '" << map->name_ << "'" << std::endl;
         } else {
-          call.delegate = std::make_unique<StrCall>(call, map); 
+          call.delegate = std::make_shared<StrCall>(call, std::move(map));
         }
         
         call.type = SizedType(Type::string, strlen);

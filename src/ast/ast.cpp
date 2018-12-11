@@ -10,9 +10,9 @@ Call::Call(std::string &func, ExpressionList *vargs)
 , vargs(vargs)
 { }
 
-StrCall::StrCall(const Call &call, const IMap& map)
+StrCall::StrCall(const Call &call, std::unique_ptr<IMap> map)
 : call(call)
-, map(map)
+, map(std::move(map))
 { }
 
 void Integer::accept(Visitor &v) {

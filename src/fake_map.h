@@ -1,6 +1,7 @@
 #pragma once
 
 #include "imap.h"
+#include "libbpf.h"
 
 namespace bpftrace {
 
