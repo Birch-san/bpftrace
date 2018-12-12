@@ -12,9 +12,7 @@ namespace bpftrace {
 namespace ast {
 
 // forward-declare CodegenLLVM, so that we can refer to it as a friend class without pulling in the whole header (which would introduce circular dependency)
-// namespace llvm {
-//   class CodegenLLVM;
-// }
+// class CodegenLLVM;
 
 class Visitor;
 class INode {
@@ -26,7 +24,7 @@ public:
 class Node : public INode {
 public:
   virtual ~Node();
-  virtual void accept(Visitor &v) override = 0;
+  virtual void accept(Visitor &v) = 0;
   std::shared_ptr<INode> delegate;
 };
 
@@ -284,7 +282,9 @@ public:
   virtual void visit(String &string) = 0;
   virtual void visit(Builtin &builtin) = 0;
   virtual void visit(Call &call) = 0;
-  virtual void visit(StrCall &str_call) = 0;
+  // StrCall is a delegate which encapsulates codegen implementation for a Call.
+  // most visitors are satisfied by the detail on Call, and need not traverse into the delegate.
+  virtual void visit(StrCall &call) {};
   virtual void visit(Map &map) = 0;
   virtual void visit(Variable &var) = 0;
   virtual void visit(Binop &binop) = 0;

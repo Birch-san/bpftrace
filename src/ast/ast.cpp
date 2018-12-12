@@ -32,11 +32,11 @@ void Builtin::accept(Visitor &v) {
   v.visit(*this);
 }
 
-void StrCall::accept(Visitor &v) {
+void Call::accept(Visitor &v) {
   v.visit(*this);
 }
 
-void Call::accept(Visitor &v) {
+void StrCall::accept(Visitor &v) {
   v.visit(*this);
 }
 

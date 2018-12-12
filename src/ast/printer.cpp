@@ -45,16 +45,6 @@ void Printer::visit(Call &call)
   --depth_;
 }
 
-void visit(StrCall &str_call)
-{
-  std::string indent(depth_, ' ');
-  out_ << indent << "str_call of:" << std::endl;
-
-  ++depth_;
-  str_call.call.accept(*this);
-  --depth_;
-}
-
 void Printer::visit(Map &map)
 {
   std::string indent(depth_, ' ');
