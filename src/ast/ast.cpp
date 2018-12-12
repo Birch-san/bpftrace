@@ -5,6 +5,11 @@
 namespace bpftrace {
 namespace ast {
 
+// https://stackoverflow.com/a/6145063/5257399
+// we declare body here to ensure that linker creates vtable
+// INode::~INode() {}
+Node::~Node() {}
+
 Call::Call(std::string &func, ExpressionList *vargs)
 : func(func)
 , vargs(vargs)

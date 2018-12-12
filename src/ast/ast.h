@@ -19,14 +19,14 @@ namespace ast {
 class Visitor;
 class INode {
 public:
-  virtual ~INode() { }
+  virtual ~INode() {};
   virtual void accept(Visitor &v) = 0;
 };
 
 class Node : public INode {
 public:
   virtual ~Node();
-  virtual void accept(Visitor &v) override;
+  virtual void accept(Visitor &v) override = 0;
   std::shared_ptr<INode> delegate;
 };
 
@@ -78,12 +78,10 @@ public:
 };
 
 class StrCall : public INode {
-  // friend class CodegenLLVM;
 public:
   explicit StrCall(const Call &call, std::unique_ptr<IMap> map);
-
   virtual void accept(Visitor &v) override;
-// private:
+
   const Call &call;
   std::unique_ptr<IMap> map;
 };
