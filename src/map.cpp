@@ -35,16 +35,12 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
   {
       map_type = BPF_MAP_TYPE_PERCPU_HASH;
   }
-  else if (type.type == Type::join)
+  else if (type.type == Type::join
+    || type.type == Type::str_call)
   {
     map_type = BPF_MAP_TYPE_PERCPU_ARRAY;
     max_entries = 1;
     key_size = 4;
-  }
-  else if (type.type == Type::str_call)
-  {
-    map_type = BPF_MAP_TYPE_PERCPU_ARRAY;
-    max_entries = 1;
   }
   else
     map_type = BPF_MAP_TYPE_HASH;

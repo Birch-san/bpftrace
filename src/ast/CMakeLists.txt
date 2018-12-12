@@ -1,5 +1,6 @@
 add_library(ast
   ast.cpp
+  map_factory.cpp
   codegen_llvm.cpp
   irbuilderbpf.cpp
   printer.cpp

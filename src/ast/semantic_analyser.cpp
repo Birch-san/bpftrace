@@ -218,7 +218,7 @@ void SemanticAnalyser::visit(Call &call)
 
         std::unique_ptr<IMap> map = MapFactory::constructMapForStoringBigStringsOffStack(strlen);
         if (map->mapfd_ < 0) {
-          err_ << "Error creating map: '" << map->name_ << "'" << std::endl;
+          err_ << "Error creating map: '" << map->name_ << "'; '" << strerror(errno) << "'." << std::endl;
         } else {
           call.delegate = std::make_shared<StrCall>(call, std::move(map));
         }
