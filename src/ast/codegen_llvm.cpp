@@ -457,9 +457,9 @@ void CodegenLLVM::visit(Call &call)
       arg.accept(*this);
       Value *offset = b_.CreateGEP(printf_args, {b_.getInt32(0), b_.getInt32(i)});
       if (arg.type.IsArray()) {
-        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+        // b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
       } else {
-        b_.CreateStore(expr_, offset);
+        // b_.CreateStore(expr_, offset);
       }
 
       if (expr_deleter_) {
@@ -653,6 +653,8 @@ void CodegenLLVM::visit(StrCall &str_call)
       lookup_func_ptr_type);
   CallInst *str_buffer = b_.CreateCall(lookup_func, {map_ptr, key}, "str_buffer");
 
+  // b_.CreateMemSet(str_buffer, b_.getInt8(0), str_call.map->type_.size, 1);
+
 
   AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
   b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
@@ -689,21 +691,26 @@ void CodegenLLVM::visit(StrCall &str_call)
   
   Value *strlen_value = b_.CreateLoad(strlen);
   
-  // // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
-  // AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
+  // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
+  AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
 
-  // // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
-  // b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
+  // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
+  b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
 
   call.vargs->front()->accept(*this);
   
-  // // b_.CreateProbeReadStr(buf, strlen_value, expr_);
+  b_.CreateProbeReadStr(buf, strlen_value, expr_);
   // b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
+  
+  b_.CreateProbeReadStr(str_buffer, strlen_value, expr_);
   
   b_.CreateLifetimeEnd(strlen);
 
-  expr_ = buf;
-  expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
+  // expr_ = buf;
+  // expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
+
+  expr_ = str_buffer;
+  expr_deleter_ = [](){};
 }
 
 void CodegenLLVM::visit(Map &map)
