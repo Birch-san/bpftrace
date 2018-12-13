@@ -637,6 +637,23 @@ void CodegenLLVM::visit(Call &call)
 void CodegenLLVM::visit(StrCall &str_call)
 {
   const Call& call = str_call.call;
+
+  Value *map_ptr = b_.CreateBpfPseudoCall(str_call.map->mapfd_);
+  AllocaInst *key = b_.CreateAllocaBPF(b_.getInt32Ty(), "key");
+  b_.CreateStore(b_.getInt32(0), key);
+
+  FunctionType *lookup_func_type = FunctionType::get(
+      b_.getInt8PtrTy(),
+      {b_.getInt8PtrTy(), b_.getInt8PtrTy()},
+      false);
+  PointerType *lookup_func_ptr_type = PointerType::get(lookup_func_type, 0);
+  Constant *lookup_func = ConstantExpr::getCast(
+      Instruction::IntToPtr,
+      b_.getInt64(BPF_FUNC_map_lookup_elem),
+      lookup_func_ptr_type);
+  CallInst *str_buffer = b_.CreateCall(lookup_func, {map_ptr, key}, "str_buffer");
+
+
   AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
   b_.CreateMemSet(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
   if (call.vargs->size() > 1) {
@@ -671,13 +688,18 @@ void CodegenLLVM::visit(StrCall &str_call)
   */
   
   Value *strlen_value = b_.CreateLoad(strlen);
-  // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
-  AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
-  // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
-  b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
+  
+  // // AllocaInst *buf = b_.CreateAllocaBPF(b_.getInt8Ty(), strlen_value, "str");
+  // AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.printf_arg_strlen_, "str"); // btw BPF has a stack limit of 512
+
+  // // b_.CreateMemSet(buf, b_.getInt8(0), strlen_value, 1);
+  // b_.CreateMemSet(buf, b_.getInt8(0), bpftrace_.printf_arg_strlen_, 1);
+
   call.vargs->front()->accept(*this);
-  // b_.CreateProbeReadStr(buf, strlen_value, expr_);
-  b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
+  
+  // // b_.CreateProbeReadStr(buf, strlen_value, expr_);
+  // b_.CreateProbeReadStr(buf, b_.CreateLoad(strlen), expr_);
+  
   b_.CreateLifetimeEnd(strlen);
 
   expr_ = buf;
