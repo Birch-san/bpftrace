@@ -16,6 +16,12 @@
 #error Unsupported LLVM version
 #endif
 
+// since these are absent from the libbpf upon which our bcc includes is based
+// static int (*bpf_probe_read_to_map)(void *dst, u64 size, const void *unsafe_ptr) =
+//   (void *) BPF_FUNC_probe_read_to_map;
+// static int (*bpf_probe_read_str_to_map)(void *dst, u64 size, const void *unsafe_ptr) =
+//   (void *) BPF_FUNC_probe_read_str_to_map;
+
 namespace bpftrace {
 namespace ast {
 
@@ -41,9 +47,11 @@ public:
   void        CreateMapUpdateElem(Map &map, AllocaInst *key, Value *val);
   void        CreateMapDeleteElem(Map &map, AllocaInst *key);
   void        CreateProbeRead(AllocaInst *dst, size_t size, Value *src);
+  void        CreateProbeReadToMap(Value *dst, size_t size, Value *src);
   CallInst   *CreateProbeReadStr(AllocaInst *dst, llvm::Value *size, Value *src);
   CallInst   *CreateProbeReadStr(AllocaInst *dst, size_t size, Value *src);
   CallInst   *CreateProbeReadStr(Value *dst, size_t size, Value *src);
+  CallInst   *CreateProbeReadStrToMap(Value *dst, Value *size, Value *src);
   Value      *CreateUSDTReadArgument(Value *ctx, AttachPoint *attach_point, int arg_name, Builtin &builtin);
   Value      *CreateStrcmp(Value* val, std::string str, bool inverse=false);
   CallInst   *CreateGetNs();
