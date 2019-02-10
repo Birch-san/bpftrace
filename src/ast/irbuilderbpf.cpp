@@ -278,7 +278,8 @@ void IRBuilderBPF::CreateProbeReadToMap(llvm::Value *dst, size_t size, llvm::Val
   PointerType *func_ptr_type = PointerType::get(func_type, 0);
   Constant *func = ConstantExpr::getCast(
       Instruction::IntToPtr,
-      getInt64(BPF_FUNC_probe_read_to_map),
+      // getInt64(BPF_FUNC_probe_read_to_map),
+      getInt64(BPF_FUNC_getsockopt + 1),
       func_ptr_type);
   CallInst *call = CreateCall(func, {dst, getInt64(size), src}, "probe_read_to_map");
 }
@@ -328,7 +329,8 @@ CallInst *IRBuilderBPF::CreateProbeReadStrToMap(Value *dst, Value *size, Value *
   PointerType *func_ptr_type = PointerType::get(func_type, 0);
   Constant *func = ConstantExpr::getCast(
       Instruction::IntToPtr,
-      getInt64(BPF_FUNC_probe_read_str_to_map),
+      // getInt64(BPF_FUNC_probe_read_str_to_map),
+      getInt64(BPF_FUNC_getsockopt + 2),
       func_ptr_type);
   return CreateCall(func, {dst, size, src}, "probe_read_str_to_map");
 }
