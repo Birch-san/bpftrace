@@ -267,7 +267,7 @@ void IRBuilderBPF::CreateProbeRead(AllocaInst *dst, size_t size, Value *src)
   CallInst *call = CreateCall(func, {dst, getInt64(size), src}, "probe_read_to_map");
 }
 
-void IRBuilderBPF::CreateProbeReadToMap(Value *dst, size_t size, Value *src)
+void IRBuilderBPF::CreateProbeReadToMap(llvm::Value *dst, size_t size, llvm::Value *src)
 {
   // int bpf_probe_read_to_map(void *dst, int size, void *src)
   // Return: 0 on success or negative error
@@ -318,7 +318,7 @@ CallInst *IRBuilderBPF::CreateProbeReadStr(Value *dst, size_t size, Value *src)
   return CreateCall(probereadstr_func, {dst, getInt64(size), src}, "map_read_str");
 }
 
-CallInst *IRBuilderBPF::CreateProbeReadStrToMap(Value *dst, size_t size, Value *src)
+CallInst *IRBuilderBPF::CreateProbeReadStrToMap(Value *dst, Value *size, Value *src)
 {
   // int bpf_probe_read_str_to_map(void *dst, int size, const void *unsafe_ptr)
   FunctionType *func_type = FunctionType::get(
@@ -330,7 +330,7 @@ CallInst *IRBuilderBPF::CreateProbeReadStrToMap(Value *dst, size_t size, Value *
       Instruction::IntToPtr,
       getInt64(BPF_FUNC_probe_read_str_to_map),
       func_ptr_type);
-  return CreateCall(func, {dst, getInt64(size), src}, "probe_read_str_to_map");
+  return CreateCall(func, {dst, size, src}, "probe_read_str_to_map");
 }
 
 Value *IRBuilderBPF::CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin) {
