@@ -442,9 +442,11 @@ void BPFtrace::request_finalize()
     child_->terminate();
 }
 
-void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unused)))
+void perf_event_printer(void *cb_cookie,
+                        void *data,
+                        int size __attribute__((unused)))
 {
-  auto bpftrace = static_cast<BPFtrace*>(cb_cookie);
+  auto bpftrace = static_cast<BPFtrace *>(cb_cookie);
   auto printf_id = *static_cast<uint64_t*>(data);
   auto arg_data = static_cast<uint8_t*>(data);
   int err;
@@ -760,7 +762,7 @@ size_t BPFtrace::num_params() const
 
 void perf_event_lost(void *cb_cookie, uint64_t lost)
 {
-  auto bpftrace = static_cast<BPFtrace*>(cb_cookie);
+  auto bpftrace = static_cast<BPFtrace *>(cb_cookie);
   bpftrace->out_->lost_events(lost);
 }
 
