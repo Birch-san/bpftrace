@@ -477,15 +477,7 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "str")
   {
-    auto &strcall = static_cast<StrCall &>(call);
-
-    int arrayIx = 0;
-    // TODO: round-robin through array indices, to ensure we don't write faster
-    // than we read
-    // TODO: detect when no free array index is available, log it, and fail any
-    // printf that consumes our string
-    CallInst *str_map = b_.CreateGetStrMap(
-        ctx_, strcall.state.value().map->mapfd_, arrayIx, call.loc);
+    CallInst *str_map = b_.CreateGetStrMap(ctx_, call.loc);
     Function *parent = b_.GetInsertBlock()->getParent();
     BasicBlock *zero = BasicBlock::Create(module_->getContext(),
                                           "strzero",
@@ -504,8 +496,8 @@ void CodegenLLVM::visit(Call &call)
 
     b_.SetInsertPoint(notzero);
 
-    auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(
-        strcall.state.value().zeroesForClearingMap.get()));
+    auto zeroed_area_ptr = b_.getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.str_map_zero_->data()));
 
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
@@ -525,33 +517,16 @@ void CodegenLLVM::visit(Call &call)
     } else {
       b_.CreateStore(b_.getInt64(bpftrace_.strlen_), strlen);
     }
-
-    StructType *structType = static_cast<StructType *>(
-        b_.GetType(strcall.type));
-
-    AllocaInst *buf = b_.CreateAllocaBPF(structType, "str_struct");
-    b_.CreateStore(b_.getInt64(strcall.state.value().map->mapfd_),
-                   b_.CreateGEP(buf, { b_.getInt64(0), b_.getInt32(0) }));
-    b_.CreateStore(b_.getInt64(arrayIx),
-                   b_.CreateGEP(buf, { b_.getInt64(0), b_.getInt32(1) }));
-    b_.CreateStore(b_.CreateLoad(strlen),
-                   b_.CreateGEP(buf, { b_.getInt64(0), b_.getInt32(2) }));
-
+                  
     call.vargs->front()->accept(*this);
     // zero it out first
-    b_.CreateProbeRead(ctx_,
-                       str_map,
-                       strcall.maxStrSize.value(),
-                       ConstantExpr::getCast(Instruction::IntToPtr,
-                                             zeroed_area_ptr,
-                                             b_.getInt8PtrTy()),
-                       call.loc);
+    b_.CreateProbeRead(ctx_, str_map, bpftrace_.strlen_,
+                      ConstantExpr::getCast(Instruction::IntToPtr, zeroed_area_ptr, b_.getInt8PtrTy()), call.loc);
     b_.CreateProbeReadStr(ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
 
     b_.CreateLifetimeEnd(strlen);
 
-    expr_ = buf;
-    expr_deleter_ = [this, buf]() { b_.CreateLifetimeEnd(buf); };
+    expr_ = str_map;
     b_.CreateBr(zero);
 
     // done
@@ -2375,7 +2350,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   b_.SetInsertPoint(notzero);
 
   auto zeroed_area_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(bpftrace_.fmtstr_map_zero_));
+      reinterpret_cast<uintptr_t>(bpftrace_.fmtstr_map_zero_->data()));
 
   b_.CreateProbeRead(ctx_, fmt_args, struct_size,
                      ConstantExpr::getCast(Instruction::IntToPtr, zeroed_area_ptr, fmt_struct_ptr_ty), call.loc);

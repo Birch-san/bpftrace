@@ -1,6 +1,5 @@
 #include "ast.h"
 #include "parser.tab.hh"
-#include <cstdlib>
 #include <iostream>
 
 namespace bpftrace {
@@ -116,34 +115,6 @@ Call::Call(const std::string &func, location loc, ExpressionList *vargs)
 
 void Call::accept(Visitor &v) {
   v.visit(*this);
-}
-
-StrCall::StrCall(location loc, ExpressionList *vargs)
-    : Call("str", std::move(loc), vargs)
-{
-}
-
-void StrCall::StrMapState::ZeroesDeleter::operator()(std::byte *bytes)
-{
-  free(bytes);
-}
-
-StrCall::StrMapState::StrMapState(
-    std::shared_ptr<IMap> map,
-    std::unique_ptr<std::byte, ZeroesDeleter> zeroesForClearingMap)
-    : map(std::move(map)), zeroesForClearingMap(std::move(zeroesForClearingMap))
-{
-}
-
-Call *CallFactory::createCall(const std::string &func,
-                              location loc,
-                              ExpressionList *vargs)
-{
-  if (func == "str")
-  {
-    return new StrCall(std::move(loc), vargs);
-  }
-  return new Call(func, std::move(loc), vargs);
 }
 
 Map::Map(const std::string &ident, location loc)

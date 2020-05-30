@@ -108,10 +108,10 @@ private:
   std::map<std::string, ExpressionList> map_args_;
   std::map<std::string, SizedType> ap_args_;
   std::unordered_set<StackType> needs_stackid_maps_;
-  std::vector<StrCall *> str_calls_;
   uint32_t loop_depth_ = 0;
   bool needs_join_map_ = false;
   bool needs_fmtstr_map_ = false;
+  bool needs_str_map_ = false;
   bool needs_elapsed_map_ = false;
   bool has_begin_probe_ = false;
   bool has_end_probe_ = false;

@@ -2,10 +2,7 @@
 
 #include "location.hh"
 #include "utils.h"
-#include <cstddef>
 #include <map>
-#include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -108,34 +105,6 @@ public:
   ExpressionList *vargs;
 
   void accept(Visitor &v) override;
-};
-
-class StrCall : public Call
-{
-public:
-  class StrMapState
-  {
-  public:
-    struct ZeroesDeleter
-    {
-      void operator()(std::byte *bytes);
-    };
-    StrMapState(std::shared_ptr<IMap> map,
-                std::unique_ptr<std::byte, ZeroesDeleter> zeroesForClearingMap);
-    std::shared_ptr<IMap> map;
-    std::unique_ptr<std::byte, ZeroesDeleter> zeroesForClearingMap;
-  };
-  StrCall(location loc, ExpressionList *vargs = nullptr);
-  std::optional<StrMapState> state;
-  std::optional<int> maxStrSize;
-};
-
-class CallFactory
-{
-public:
-  static Call *createCall(const std::string &func,
-                          location loc,
-                          ExpressionList *vargs = nullptr);
 };
 
 class Map : public Expression {
