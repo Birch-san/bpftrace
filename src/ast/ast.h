@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "types.h"
-#include "imap.h"
 
 namespace bpftrace {
 namespace ast {
