@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "imap.h"
 #include "types.h"
 
 namespace bpftrace {
