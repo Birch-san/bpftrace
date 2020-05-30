@@ -137,10 +137,7 @@ public:
   virtual std::string extract_func_symbols_from_path(const std::string &path) const;
   std::string resolve_probe(uint64_t probe_id) const;
   uint64_t resolve_cgroupid(const std::string &path) const;
-  std::vector<std::unique_ptr<IPrintable>> get_arg_values(
-      const std::vector<Field> &args,
-      uint8_t *arg_data,
-      int cpu_id);
+  std::vector<std::unique_ptr<IPrintable>> get_arg_values(const std::vector<Field> &args, uint8_t* arg_data);
   void add_param(const std::string &param);
   std::string get_param(size_t index, bool is_str) const;
   size_t num_params() const;

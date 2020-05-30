@@ -444,8 +444,7 @@ void BPFtrace::request_finalize()
 
 void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
 {
-  auto cookie = static_cast<PerfEventCallbackCookie *>(cb_cookie);
-  auto bpftrace = cookie->bpftrace;
+  auto bpftrace = static_cast<PerfEventCallbackCookie*>(cb_cookie)->bpftrace;
   auto printf_id = *static_cast<uint64_t*>(data);
   auto arg_data = static_cast<uint8_t*>(data);
   int err;
@@ -563,7 +562,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     auto id = printf_id - asyncactionint(AsyncAction::syscall);
     auto fmt = std::get<0>(bpftrace->system_args_[id]).c_str();
     auto args = std::get<1>(bpftrace->system_args_[id]);
-    auto arg_values = bpftrace->get_arg_values(args, arg_data, cookie->cpu);
+    auto arg_values = bpftrace->get_arg_values(args, arg_data);
 
     const int BUFSIZE = 512;
     char buffer[BUFSIZE];
@@ -583,7 +582,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     auto id = printf_id - asyncactionint(AsyncAction::cat);
     auto fmt = std::get<0>(bpftrace->cat_args_[id]).c_str();
     auto args = std::get<1>(bpftrace->cat_args_[id]);
-    auto arg_values = bpftrace->get_arg_values(args, arg_data, cookie->cpu);
+    auto arg_values = bpftrace->get_arg_values(args, arg_data);
 
     const int BUFSIZE = 512;
     char buffer[BUFSIZE];
@@ -605,7 +604,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
   // printf
   auto fmt = std::get<0>(bpftrace->printf_args_[printf_id]).c_str();
   auto args = std::get<1>(bpftrace->printf_args_[printf_id]);
-  auto arg_values = bpftrace->get_arg_values(args, arg_data, cookie->cpu);
+  auto arg_values = bpftrace->get_arg_values(args, arg_data);
 
   // First try with a stack buffer, if that fails use a heap buffer
   const int BUFSIZE=512;
@@ -623,10 +622,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
   }
 }
 
-std::vector<std::unique_ptr<IPrintable>> BPFtrace::get_arg_values(
-    const std::vector<Field> &args,
-    uint8_t *arg_data,
-    int cpu_id)
+std::vector<std::unique_ptr<IPrintable>> BPFtrace::get_arg_values(const std::vector<Field> &args, uint8_t* arg_data)
 {
   std::vector<std::unique_ptr<IPrintable>> arg_values;
 
