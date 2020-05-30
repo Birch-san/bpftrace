@@ -521,6 +521,7 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = str_map;
+    expr_points_to_map_value = true;
     b_.CreateBr(zero);
 
     // done
@@ -2346,13 +2347,17 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   {
     Expression &arg = *call.vargs->at(i);
     expr_deleter_ = nullptr;
+    expr_points_to_map_value = false;
     arg.accept(*this);
-    // TODO: eventually operands such as "string backed by map" will have a failure-mode "failed to acquire free map index"
-    // in that situation: we will want to abort the print (and log why)
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
+    // TODO: consider checking whether expr_ is a nullptr to map value
     if (arg.type.IsAggregate())
     {
-      b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      if (expr_points_to_map_value) {
+        b_.CreateProbeRead(ctx_, offset, arg.type.size, expr_, call.loc);
+      } else {
+        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      }
       if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
         b_.CreateLifetimeEnd(expr_);
     }
