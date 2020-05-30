@@ -1,7 +1,6 @@
 #include <arpa/inet.h>
 #include <cassert>
 #include <cstdio>
-#include <cstddef>
 #include <cstring>
 #include <ctime>
 #include <cxxabi.h>
@@ -665,30 +664,6 @@ std::vector<std::unique_ptr<IPrintable>> BPFtrace::get_arg_values(const std::vec
           abort();
         }
         break;
-      case Type::mapstr:
-      {
-        AsyncEvent::StrMap * strMap(reinterpret_cast<AsyncEvent::StrMap *>(arg_data+arg.offset));
-        uint64_t mapfd(strMap->mapfd);
-        int32_t arrayIx(static_cast<int32_t>(strMap->arrayIx & 0xffffffff));
-        uint64_t strLen(strMap->strLen);
-
-        std::shared_ptr<IMap> map = get_mapstr_map_by_fd(static_cast<int32_t>(mapfd & 0xffffffff));
-        int strBuffSize(map->value_size_ * ncpus_);
-        auto str_buff = std::vector<std::byte>(strBuffSize);
-        int err = bpf_lookup_elem(mapfd, &arrayIx, str_buff.data());
-        if (err) {
-          // TODO: abort print?
-          std::cerr << "bpf_lookup_elem err:" << err << std::endl;
-        }
-
-        std::string_view ourString(
-          &reinterpret_cast<char&>(str_buff.at(map->value_size_ * cpu_id)),
-          strLen
-          );
-
-        arg_values.push_back(std::make_unique<PrintableString>(std::string(ourString)));
-        break;
-      }
       case Type::string:
       {
         auto p = reinterpret_cast<char *>(arg_data + arg.offset);

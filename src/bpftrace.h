@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 #include <string_view>
+#include <cstddef>
 
 #include "ast.h"
 #include "attached_probe.h"
@@ -119,10 +120,6 @@ public:
   {
     return *maps_[map_ids_[id]].get();
   };
-  inline std::shared_ptr<IMap> get_mapstr_map_by_fd(int fd)
-  {
-    return mapstrs_[fd];
-  };
   std::string get_stack(uint64_t stackidpid, bool ustack, StackType stack_type, int indent=0);
   std::string resolve_buf(char *buf, size_t size);
   std::string resolve_ksym(uintptr_t addr, bool show_offset=false);
@@ -172,8 +169,9 @@ public:
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
   std::unique_ptr<IMap> join_map_;
   std::unique_ptr<IMap> fmtstr_map_;
-  std::map<int, std::shared_ptr<IMap>> mapstrs_;
-  void *fmtstr_map_zero_ = nullptr;
+  std::unique_ptr<IMap> str_map_;
+  std::unique_ptr<std::vector<std::byte>> fmtstr_map_zero_;
+  std::unique_ptr<std::vector<std::byte>> str_map_zero_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;
   std::vector<std::string> probe_ids_;
@@ -183,7 +181,6 @@ public:
   BPFfeature feature_;
 
   uint64_t strlen_ = 64;
-  uint64_t events_buffer_size_ = 4;
   uint64_t mapmax_ = 4096;
   size_t cat_bytes_max_ = 10240;
   uint64_t max_probes_ = 512;

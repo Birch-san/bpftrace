@@ -37,7 +37,6 @@ enum class Type
   cast,
   join,
   fmtstr,
-  mapstr,
   probe,
   username,
   inet,
@@ -217,10 +216,6 @@ public:
   bool IsFmtStrTy(void) const
   {
     return type == Type::fmtstr;
-  };
-  bool IsMapStrTy(void) const
-  {
-    return type == Type::mapstr;
   };
   bool IsProbeTy(void) const
   {

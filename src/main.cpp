@@ -66,8 +66,7 @@ void usage()
   std::cerr << "    -kk            check all bpf helper functions" << std::endl;
   std::cerr << "    -V, --version  bpftrace version" << std::endl << std::endl;
   std::cerr << "ENVIRONMENT:" << std::endl;
-  std::cerr << "    BPFTRACE_STRLEN             [default: 64] max str() size" << std::endl;
-  std::cerr << "    BPFTRACE_EVENTS_BUFFER_SIZE [default: 4] max str()s waiting to be printed" << std::endl;
+  std::cerr << "    BPFTRACE_STRLEN             [default: 64] max string size" << std::endl;
   std::cerr << "    BPFTRACE_NO_CPP_DEMANGLE    [default: 0] disable C++ symbol demangling" << std::endl;
   std::cerr << "    BPFTRACE_MAP_KEYS_MAX       [default: 4096] max keys in a map" << std::endl;
   std::cerr << "    BPFTRACE_CAT_BYTES_MAX      [default: 10k] maximum bytes read by cat builtin" << std::endl;
@@ -476,9 +475,6 @@ int main(int argc, char *argv[])
   bpftrace.join_argsize_ = 1024;
 
   if (!get_uint64_env_var("BPFTRACE_STRLEN", bpftrace.strlen_))
-    return 1;
-
-  if (!get_uint64_env_var("BPFTRACE_EVENTS_BUFFER_SIZE", bpftrace.events_buffer_size_))
     return 1;
 
   if (const char* env_p = std::getenv("BPFTRACE_NO_CPP_DEMANGLE"))

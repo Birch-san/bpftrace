@@ -153,17 +153,10 @@ llvm::ConstantInt *IRBuilderBPF::GetIntSameSize(uint64_t C, llvm::Value *expr)
   return getIntN(size, C);
 }
 
-StructType *IRBuilderBPF::GetMapStrTy() {
-
-  return StructType::create({ getInt64Ty(), getInt64Ty(), getInt64Ty() }, "mapstr_t", false);
-}
-
 llvm::Type *IRBuilderBPF::GetType(const SizedType &stype)
 {
   llvm::Type *ty;
-  if  (stype.type == Type::mapstr) {
-    ty = GetMapStrTy();
-  } else if (stype.IsArray()) {
+  if (stype.IsArray()) {
     ty = ArrayType::get(getInt8Ty(), stype.size);
   }
   else if (stype.IsTupleTy())
@@ -246,12 +239,12 @@ CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
   return call;
 }
 
-CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, int mapfd, int elem, const location &loc)
+CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
 {
   AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  CreateStore(getInt32(elem), key);
+  CreateStore(getInt32(0), key);
 
-  CallInst *call = createMapLookup(mapfd, key);
+  CallInst *call = createMapLookup(bpftrace_.str_map_->mapfd_, key);
   CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, true);
   return call;
 }
