@@ -491,7 +491,7 @@ void CodegenLLVM::visit(Call &call)
 
     b_.SetInsertPoint(notzero);
 
-    auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.str_map_zero_->data()));
+    auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
@@ -2336,7 +2336,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
 
   b_.SetInsertPoint(notzero);
 
-  auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.fmtstr_map_zero_->data()));
+  auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
   b_.CreateProbeRead(ctx_, fmt_args, struct_size,
                      ConstantExpr::getCast(Instruction::IntToPtr, zeroed_area_ptr, fmt_struct_ptr_ty), call.loc);

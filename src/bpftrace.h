@@ -170,8 +170,7 @@ public:
   std::unique_ptr<IMap> join_map_;
   std::unique_ptr<IMap> fmtstr_map_;
   std::unique_ptr<IMap> str_map_;
-  std::unique_ptr<std::vector<std::byte>> fmtstr_map_zero_;
-  std::unique_ptr<std::vector<std::byte>> str_map_zero_;
+  std::unique_ptr<std::vector<std::byte>> zero_buffer_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;
   std::vector<std::string> probe_ids_;
