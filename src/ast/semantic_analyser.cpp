@@ -2324,21 +2324,22 @@ int SemanticAnalyser::create_maps(bool debug)
     failed_maps += is_invalid_map(bpftrace_.perf_event_map_->mapfd_);
   }
 
+  size_t max_zero_buffer_size_ = 0;
+
   if (needs_fmtstr_map_)
   {
     std::string map_ident = "fmtstr";
 
-    SizedType type = SizedType(Type::fmtstr,
-                               sizeof(size_t) + max_fmtstr_args_size_);
+    size_t printf_struct_size = sizeof(size_t) + max_fmtstr_args_size_;
+    SizedType type = SizedType(Type::fmtstr, printf_struct_size);
     MapKey key;
     if (debug)
       bpftrace_.fmtstr_map_ = std::make_unique<bpftrace::FakeMap>(map_ident, type, key);
     else {
       bpftrace_.fmtstr_map_ = std::make_unique<bpftrace::Map>(map_ident, type, key, 1);
-      bpftrace_.fmtstr_map_zero_ = std::make_unique<std::vector<std::byte>>(
-          max_fmtstr_args_size_ + sizeof(size_t), std::byte(0));
     }
     failed_maps += is_invalid_map(bpftrace_.fmtstr_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, printf_struct_size);
   }
 
   if (needs_str_map_)
@@ -2351,11 +2352,12 @@ int SemanticAnalyser::create_maps(bool debug)
       bpftrace_.str_map_ = std::make_unique<bpftrace::FakeMap>(map_ident, type, key);
     else {
       bpftrace_.str_map_ = std::make_unique<bpftrace::Map>(map_ident, type, key, 1);
-      bpftrace_.str_map_zero_ = std::make_unique<std::vector<std::byte>>(
-          bpftrace_.strlen_, std::byte(0));
     }
     failed_maps += is_invalid_map(bpftrace_.str_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
+
+  bpftrace_.zero_buffer_ = std::make_unique<std::vector<std::byte>>(max_zero_buffer_size_, std::byte(0));
 
   if (failed_maps > 0)
   {
