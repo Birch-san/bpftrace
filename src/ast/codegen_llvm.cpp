@@ -2329,6 +2329,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   Function *parent = b_.GetInsertBlock()->getParent();
   BasicBlock *zero = BasicBlock::Create(module_->getContext(), "fmtstrzero", parent);
   BasicBlock *notzero = BasicBlock::Create(module_->getContext(), "fmtstrnotzero", parent);
+  BasicBlock *done = BasicBlock::Create(module_->getContext(), "fmtstrdone", parent);
 
   auto fmt_struct_ptr_ty = PointerType::get(fmt_struct, 0);
   auto null_ptr = ConstantExpr::getCast(Instruction::IntToPtr, b_.getInt64(0), fmt_struct_ptr_ty);
@@ -2372,10 +2373,15 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   b_.CreatePerfEventOutput(ctx_, fmt_args, struct_size);
   b_.CreateLifetimeEnd(fmt_args);
 
-  b_.CreateBr(zero);
+  b_.CreateBr(done);
 
-  // done
   b_.SetInsertPoint(zero);
+
+  
+
+  b_.CreateRet(ConstantInt::get(module_->getContext(), APInt(64, 0)));
+  // done
+  b_.SetInsertPoint(done);
   expr_ = nullptr;
 }
 

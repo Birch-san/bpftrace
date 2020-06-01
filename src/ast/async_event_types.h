@@ -93,5 +93,21 @@ struct HelperError
   }
 } __attribute__((packed));
 
+struct FmtStrNullMap
+{
+  uint64_t printf_id;
+  uint64_t async_action_id;
+  uint64_t error_id;
+
+  static std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b)
+  {
+    return {
+      b.getInt64Ty(), // printf_id
+      b.getInt64Ty(), // async_action_id
+      b.getInt64Ty(), // error_id
+    };
+  }
+}; // deliberately not packed; IRBuilder specifies isPacked=false
+
 } // namespace AsyncEvent
 } // namespace bpftrace

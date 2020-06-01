@@ -460,13 +460,16 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     return;
   }
 
-  // async actions
-  if (printf_id == asyncactionint(AsyncAction::exit))
+  // TODO: we've always fallen back to printf, but maybe we should warn instead
+  AsyncAction async_action = classifyAsyncAction(printf_id).value_or(AsyncAction::printf);
+
+  // TODO: consider a switch statement (but in a separate PR, since diff will be horrid)
+  if (async_action == AsyncAction::exit)
   {
     bpftrace->request_finalize();
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::print))
+  else if (async_action == AsyncAction::print)
   {
     auto print = static_cast<AsyncEvent::Print *>(data);
     IMap &map = bpftrace->get_map_by_id(print->mapid);
@@ -478,7 +481,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
                                "\", err=" + std::to_string(err));
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::clear))
+  else if (async_action == AsyncAction::clear)
   {
     auto mapevent = static_cast<AsyncEvent::MapEvent *>(data);
     IMap &map = bpftrace->get_map_by_id(mapevent->mapid);
@@ -488,7 +491,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
                                "\", err=" + std::to_string(err));
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::zero))
+  else if (async_action == AsyncAction::zero)
   {
     auto mapevent = static_cast<AsyncEvent::MapEvent *>(data);
     IMap &map = bpftrace->get_map_by_id(mapevent->mapid);
@@ -498,7 +501,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
                                "\", err=" + std::to_string(err));
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::time))
+  else if (async_action == AsyncAction::time)
   {
     char timestr[STRING_SIZE];
     time_t t;
@@ -519,7 +522,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     bpftrace->out_->message(MessageType::time, timestr, false);
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::join))
+  else if (async_action == AsyncAction::join)
   {
     uint64_t join_id = (uint64_t) * (static_cast<uint64_t *>(data) + 1);
     auto delim = bpftrace->join_args_[join_id].c_str();
@@ -535,7 +538,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     bpftrace->out_->message(MessageType::join, joined.str());
     return;
   }
-  else if (printf_id == asyncactionint(AsyncAction::helper_error))
+  else if (async_action == AsyncAction::helper_error)
   {
     auto helpererror = static_cast<AsyncEvent::HelperError *>(data);
     auto error_id = helpererror->error_id;
@@ -550,8 +553,21 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     bpftrace->warning(std::cerr, info.loc, msg.str());
     return;
   }
-  else if ( printf_id >= asyncactionint(AsyncAction::syscall) &&
-            printf_id < asyncactionint(AsyncAction::syscall) + RESERVED_IDS_PER_ASYNCACTION)
+  else if (async_action == AsyncAction::fmtstr_nullmap)
+  {
+    auto nullmap = static_cast<AsyncEvent::FmtStrNullMap *>(data);
+    auto async_action_id = nullmap->async_action_id;
+    auto error_id = nullmap->error_id;
+    auto &info = bpftrace->nullmap_error_info_[error_id];
+    std::optional<AsyncAction> failed_async_action = classifyAsyncAction(async_action_id);
+    std::string failed_action_pretty = failed_async_action.has_value()
+    ? formatAsyncAction(failed_async_action.value())
+    : "(unknown)";
+    std::stringstream msg;
+    msg << "Dropped 1 " << failed_action_pretty << " event; failed to acquire map entry.";
+    bpftrace->warning(std::cerr, info->loc, msg.str());
+  }
+  else if (async_action == AsyncAction::syscall)
   {
     if (bpftrace->safe_mode_)
     {
@@ -577,7 +593,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     bpftrace->out_->message(MessageType::syscall, exec_system(buffer), false);
     return;
   }
-  else if ( printf_id >= asyncactionint(AsyncAction::cat))
+  else if (async_action == AsyncAction::cat)
   {
     auto id = printf_id - asyncactionint(AsyncAction::cat);
     auto fmt = std::get<0>(bpftrace->cat_args_[id]).c_str();

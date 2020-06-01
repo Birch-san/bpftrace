@@ -1027,6 +1027,24 @@ void IRBuilderBPF::CreateHelperError(Value *ctx,
   CreateLifetimeEnd(buf);
 }
 
+void IRBuilderBPF::CreateFmtStrError(Value *ctx, int async_id, const location& loc) {
+  int error_id = nullmap_error_id_++;
+  bpftrace_.nullmap_error_info_[error_id] = std::make_unique<NullMapErrorInfo>(loc);
+
+  StructType* nullmap_struct = StructType::create(AsyncEvent::FmtStrNullMap::asLLVMType(*this), "fmtstr_nullmap_t", false);
+  auto &layout = module_.getDataLayout();
+  int nullmap_struct_size = layout.getTypeAllocSize(nullmap_struct);
+  AllocaInst *nullmap_perfdata = CreateAllocaBPF(nullmap_struct, "fmtstr_nullmap");
+  CreateStore(getInt64(asyncactionint(AsyncAction::fmtstr_nullmap)),
+                CreateGEP(nullmap_perfdata, { getInt64(0), getInt32(0) }));
+  CreateStore(getInt64(async_id),
+                CreateGEP(nullmap_perfdata, { getInt64(0), getInt32(1) }));
+  CreateStore(getInt64(error_id),
+                CreateGEP(nullmap_perfdata, { getInt64(0), getInt32(2) }));
+  CreatePerfEventOutput(ctx, nullmap_perfdata, nullmap_struct_size);
+  CreateLifetimeEnd(nullmap_perfdata);
+}
+
 // Report error if a return value < 0 (or return value == 0 if compare_zero is
 // true)
 void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
