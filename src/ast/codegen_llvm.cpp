@@ -2378,8 +2378,8 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   b_.SetInsertPoint(zero);
 
   b_.CreateMapLookupElemError(ctx_, call.loc);
+  b_.CreateExit();
 
-  b_.CreateRet(ConstantInt::get(module_->getContext(), APInt(64, 0)));
   // done
   b_.SetInsertPoint(done);
   expr_ = nullptr;

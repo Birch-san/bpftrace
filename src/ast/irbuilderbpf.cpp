@@ -1079,5 +1079,18 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   SetInsertPoint(helper_merge_block);
 }
 
+/*
+ * The LLVM BPF target does not support core::intrinsics::abort().
+ * Thanks to Alessandro Decina for explaining how to emit an exit instruction
+ * https://blog.redsift.com/labs/oxidised-ebpf-ii-taming-llvm/
+ * https://github.com/redsift/redbpf/blob/320e3d1/cargo-bpf/src/llvm.rs#L83
+ */
+CallInst* IRBuilderBPF::CreateExit() {
+  FunctionType *func_ty = FunctionType::get(getVoidTy(), false);
+  InlineAsm *inlineAsm = InlineAsm::get(func_ty, "exit", {}, false);
+  CallInst *call = CreateCall(inlineAsm);
+  return call;
+}
+
 } // namespace ast
 } // namespace bpftrace
