@@ -556,6 +556,7 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
     auto error_id = map_lookup_elem_err->error_id;
     auto &info = bpftrace->map_lookup_elem_error_info_[error_id];
     bpftrace->warning(std::cerr, info.loc, "failed map_lookup_elem");
+    return;
   }
   else if ( printf_id >= asyncactionint(AsyncAction::syscall) &&
             printf_id < asyncactionint(AsyncAction::syscall) + RESERVED_IDS_PER_ASYNCACTION)
