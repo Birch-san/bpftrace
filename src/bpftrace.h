@@ -87,11 +87,8 @@ struct HelperErrorInfo
   location loc;
 };
 
-struct NullMapErrorInfo
+struct MapLookupElemErrorInfo
 {
-  NullMapErrorInfo(const location &loc)
-  : loc(loc)
-  {}
   location loc;
 };
 
@@ -174,7 +171,7 @@ public:
   std::vector<std::string> time_args_;
   std::vector<std::tuple<std::string, std::vector<Field>>> cat_args_;
   std::unordered_map<int64_t, struct HelperErrorInfo> helper_error_info_;
-  std::unordered_map<uint64_t, std::unique_ptr<NullMapErrorInfo>> nullmap_error_info_;
+  std::unordered_map<int64_t, struct MapLookupElemErrorInfo> map_lookup_elem_error_info_;
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
   std::unique_ptr<IMap> join_map_;
   std::unique_ptr<IMap> fmtstr_map_;

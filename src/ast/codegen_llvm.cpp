@@ -521,7 +521,7 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = str_map;
-    expr_points_to_map_value = true;
+    expr_points_to_map_value_ = true;
     b_.CreateBr(zero);
 
     // done
@@ -2348,13 +2348,13 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   {
     Expression &arg = *call.vargs->at(i);
     expr_deleter_ = nullptr;
-    expr_points_to_map_value = false;
+    expr_points_to_map_value_ = false;
     arg.accept(*this);
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
     // TODO: consider checking whether expr_ is a nullptr to map value
     if (arg.type.IsAggregate())
     {
-      if (expr_points_to_map_value) {
+      if (expr_points_to_map_value_) {
         b_.CreateProbeRead(ctx_, offset, arg.type.size, expr_, call.loc);
       } else {
         b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
@@ -2377,7 +2377,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
 
   b_.SetInsertPoint(zero);
 
-  
+  b_.CreateMapLookupElemError(ctx_, call.loc);
 
   b_.CreateRet(ConstantInt::get(module_->getContext(), APInt(64, 0)));
   // done

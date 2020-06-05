@@ -89,12 +89,12 @@ public:
   void        CreateOverrideReturn(Value *ctx, Value *rc);
   void        CreateHelperError(Value *ctx, Value *return_value, libbpf::bpf_func_id func_id, const location& loc);
   void        CreateHelperErrorCond(Value *ctx, Value *return_value, libbpf::bpf_func_id func_id, const location& loc, bool compare_zero=false);
-  void        CreateFmtStrError(Value *ctx, int async_id, const location& loc);
+  void        CreateMapLookupElemError(Value *ctx, const location& loc);
   StructType *GetStructType(std::string name, const std::vector<llvm::Type *> & elements, bool packed = false);
   AllocaInst *CreateUSym(llvm::Value *val);
   Value      *CreatKFuncArg(Value *ctx, SizedType& type, std::string& name);
   int helper_error_id_ = 0;
-  uint64_t nullmap_error_id_ = 0;
+  int map_lookup_elem_error_id_ = 0;
 
 private:
   Module &module_;

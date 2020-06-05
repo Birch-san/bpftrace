@@ -87,7 +87,7 @@ private:
   DataLayout layout_;
   Value *expr_ = nullptr;
   std::function<void()> expr_deleter_; // intentionally empty
-  bool expr_points_to_map_value = false;
+  bool expr_points_to_map_value_ = false;
   Value *ctx_;
   AttachPoint *current_attach_point_ = nullptr;
   BPFtrace &bpftrace_;

@@ -8,7 +8,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vector>
-#include <optional>
 
 namespace bpftrace {
 
@@ -392,67 +391,11 @@ enum class AsyncAction
   time,
   join,
   helper_error,
-  fmtstr_nullmap, // printf failed to acquire map elem
-  str_nullmap, // printf operand failed to acquire map elem
+  map_lookup_elem_err,
   // clang-format on
 };
 
 uint64_t asyncactionint(AsyncAction a);
-
-std::optional<AsyncAction> classifyAsyncAction(uint64_t val) {
-  if (val < static_cast<uint64_t>(AsyncAction::syscall))
-    return AsyncAction::printf;
-  if (val < static_cast<uint64_t>(AsyncAction::cat))
-    return AsyncAction::syscall;
-  if (val < static_cast<uint64_t>(AsyncAction::exit))
-    return AsyncAction::cat;
-  if (val < static_cast<uint64_t>(AsyncAction::exit) + RESERVED_IDS_PER_ASYNCACTION)
-    return AsyncAction::exit;
-  switch(auto proposed = static_cast<AsyncAction>(val)) {
-    case AsyncAction::print:
-    case AsyncAction::clear:
-    case AsyncAction::zero:
-    case AsyncAction::time:
-    case AsyncAction::join:
-    case AsyncAction::helper_error:
-    case AsyncAction::fmtstr_nullmap:
-    case AsyncAction::str_nullmap:
-      return proposed;
-    default:
-      return {};
-  }
-}
-
-std::string formatAsyncAction(AsyncAction action) {
-  switch(action) {
-    case AsyncAction::printf:
-      return "printf";
-    case AsyncAction::syscall:
-      return "syscall";
-    case AsyncAction::cat:
-      return "cat";
-    case AsyncAction::exit:
-      return "exit";
-    case AsyncAction::print:
-      return "print";
-    case AsyncAction::clear:
-      return "clear";
-    case AsyncAction::zero:
-      return "zero";
-    case AsyncAction::time:
-      return "time";
-    case AsyncAction::join:
-      return "join";
-    case AsyncAction::helper_error:
-      return "helper_error";
-    case AsyncAction::fmtstr_nullmap:
-      return "fmtstr_nullmap";
-    case AsyncAction::str_nullmap:
-      return "str_nullmap";
-    default:
-      return "(unnamed)";
-  }
-}
 
 enum class PositionalParameterType
 {
