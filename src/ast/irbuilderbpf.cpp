@@ -55,23 +55,20 @@ StructType *IRBuilderBPF::GetStructType(
 IRBuilderBPF::IRBuilderBPF(LLVMContext &context,
                            Module &module,
                            BPFtrace &bpftrace)
-  : IRBuilder<>(context),
-    module_(module),
-    bpftrace_(bpftrace)
+    : IRBuilder<>(context), module_(module), bpftrace_(bpftrace)
 {
   // Declare external LLVM function
   FunctionType *pseudo_func_type = FunctionType::get(
-      getInt64Ty(),
-      {getInt64Ty(), getInt64Ty()},
-      false);
-  Function::Create(
-      pseudo_func_type,
-      GlobalValue::ExternalLinkage,
-      "llvm.bpf.pseudo",
-      &module_);
+      getInt64Ty(), { getInt64Ty(), getInt64Ty() }, false);
+  Function::Create(pseudo_func_type,
+                   GlobalValue::ExternalLinkage,
+                   "llvm.bpf.pseudo",
+                   &module_);
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
+                                          llvm::Value *arraysize,
+                                          const std::string &name)
 {
   Function *parent = GetInsertBlock()->getParent();
   BasicBlock &entry_block = parent->getEntryBlock();
@@ -88,18 +85,21 @@ AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize
   return alloca;
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
+                                          const std::string &name)
 {
   return CreateAllocaBPF(ty, nullptr, name);
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype,
+                                          const std::string &name)
 {
   llvm::Type *ty = GetType(stype);
   return CreateAllocaBPF(ty, nullptr, name);
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPFInit(const SizedType &stype, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPFInit(const SizedType &stype,
+                                              const std::string &name)
 {
   Function *parent = GetInsertBlock()->getParent();
   BasicBlock &entry_block = parent->getEntryBlock();
@@ -128,7 +128,9 @@ AllocaInst *IRBuilderBPF::CreateAllocaBPFInit(const SizedType &stype, const std:
   return alloca;
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype, llvm::Value *arraysize, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype,
+                                          llvm::Value *arraysize,
+                                          const std::string &name)
 {
   llvm::Type *ty = GetType(stype);
   return CreateAllocaBPF(ty, arraysize, name);
@@ -156,7 +158,8 @@ llvm::ConstantInt *IRBuilderBPF::GetIntSameSize(uint64_t C, llvm::Value *expr)
 llvm::Type *IRBuilderBPF::GetType(const SizedType &stype)
 {
   llvm::Type *ty;
-  if (stype.IsArray()) {
+  if (stype.IsArray())
+  {
     ty = ArrayType::get(getInt8Ty(), stype.size);
   }
   else if (stype.IsTupleTy())
@@ -193,7 +196,8 @@ llvm::Type *IRBuilderBPF::GetType(const SizedType &stype)
         ty = getInt8Ty();
         break;
       default:
-        std::cerr << stype.size << " is not a valid type size for GetType" << std::endl;
+        std::cerr << stype.size << " is not a valid type size for GetType"
+                  << std::endl;
         abort();
     }
   }
@@ -203,7 +207,9 @@ llvm::Type *IRBuilderBPF::GetType(const SizedType &stype)
 CallInst *IRBuilderBPF::CreateBpfPseudoCall(int mapfd)
 {
   Function *pseudo_func = module_.getFunction("llvm.bpf.pseudo");
-  return CreateCall(pseudo_func, {getInt64(BPF_PSEUDO_MAP_FD), getInt64(mapfd)}, "pseudo");
+  return CreateCall(pseudo_func,
+                    { getInt64(BPF_PSEUDO_MAP_FD), getInt64(mapfd) },
+                    "pseudo");
 }
 
 CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
@@ -245,11 +251,18 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
   CreateStore(getInt32(0), key);
 
   CallInst *call = createMapLookup(bpftrace_.str_map_->mapfd_, key);
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, /*compare_zero=*/true, /*require_success=*/true);
+  CreateHelperErrorCond(ctx,
+                        call,
+                        libbpf::BPF_FUNC_map_lookup_elem,
+                        loc,
+                        /*compare_zero=*/true,
+                        /*require_success=*/true);
   return call;
 }
 
-CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx, StructType *printf_struct, const location &loc)
+CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
+                                           StructType *printf_struct,
+                                           const location &loc)
 {
   Value *map_ptr = CreateBpfPseudoCall(bpftrace_.fmtstr_map_->mapfd_);
   AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
@@ -258,15 +271,22 @@ CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx, StructType *printf_struct
 
   FunctionType *lookup_func_type = FunctionType::get(
       PointerType::get(printf_struct, 0),
-      {getInt8PtrTy(), getInt8PtrTy()},
+      { getInt8PtrTy(), getInt8PtrTy() },
       false);
   PointerType *lookup_func_ptr_type = PointerType::get(lookup_func_type, 0);
-  Constant *lookup_func = ConstantExpr::getCast(
-      Instruction::IntToPtr,
-      getInt64(BPF_FUNC_map_lookup_elem),
-      lookup_func_ptr_type);
-  CallInst *call = CreateCall(lookup_func, {map_ptr, key}, "lookup_fmtstr_map");
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, /*compare_zero=*/true, /*require_success=*/true);
+  Constant *lookup_func = ConstantExpr::getCast(Instruction::IntToPtr,
+                                                getInt64(
+                                                    BPF_FUNC_map_lookup_elem),
+                                                lookup_func_ptr_type);
+  CallInst *call = CreateCall(lookup_func,
+                              { map_ptr, key },
+                              "lookup_fmtstr_map");
+  CreateHelperErrorCond(ctx,
+                        call,
+                        libbpf::BPF_FUNC_map_lookup_elem,
+                        loc,
+                        /*compare_zero=*/true,
+                        /*require_success=*/true);
   return call;
 }
 
@@ -291,9 +311,15 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
   // Check if result == 0
   Function *parent = GetInsertBlock()->getParent();
-  BasicBlock *lookup_success_block = BasicBlock::Create(module_.getContext(), "lookup_success", parent);
-  BasicBlock *lookup_failure_block = BasicBlock::Create(module_.getContext(), "lookup_failure", parent);
-  BasicBlock *lookup_merge_block = BasicBlock::Create(module_.getContext(), "lookup_merge", parent);
+  BasicBlock *lookup_success_block = BasicBlock::Create(module_.getContext(),
+                                                        "lookup_success",
+                                                        parent);
+  BasicBlock *lookup_failure_block = BasicBlock::Create(module_.getContext(),
+                                                        "lookup_failure",
+                                                        parent);
+  BasicBlock *lookup_merge_block = BasicBlock::Create(module_.getContext(),
+                                                      "lookup_merge",
+                                                      parent);
 
   AllocaInst *value = CreateAllocaBPF(type, "lookup_elem_val");
   Value *condition = CreateICmpNE(
@@ -403,7 +429,8 @@ void IRBuilderBPF::CreateProbeRead(Value *ctx,
   // Return: 0 on success or negative error
   FunctionType *proberead_func_type = FunctionType::get(
       getInt64Ty(), { dst->getType(), getInt32Ty(), src->getType() }, false);
-  PointerType *proberead_func_ptr_type = PointerType::get(proberead_func_type, 0);
+  PointerType *proberead_func_ptr_type = PointerType::get(proberead_func_type,
+                                                          0);
   Constant *proberead_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_probe_read),
@@ -452,9 +479,7 @@ CallInst *IRBuilderBPF::CreateProbeReadStr(Value *ctx,
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
   Constant *fn = createProbeReadStrFn(dst->getType(), src->getType());
-  CallInst *call = CreateCall(fn,
-                              { dst, size, src },
-                              "probe_read_str");
+  CallInst *call = CreateCall(fn, { dst, size, src }, "probe_read_str");
   CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_probe_read_str, loc);
   return call;
 }
@@ -487,17 +512,21 @@ Value *IRBuilderBPF::CreateUSDTReadArgument(Value *ctx,
   // TODO (mmarchini): Handle base + index * scale addressing.
   // https://github.com/iovisor/bcc/pull/988
   if (argument->valid & BCC_USDT_ARGUMENT_INDEX_REGISTER_NAME)
-    std::cerr << "index register is not handled yet [" << argument->index_register_name << "]" << std::endl;
+    std::cerr << "index register is not handled yet ["
+              << argument->index_register_name << "]" << std::endl;
   if (argument->valid & BCC_USDT_ARGUMENT_SCALE)
-    std::cerr << "scale is not handled yet [" << argument->scale << "]" << std::endl;
+    std::cerr << "scale is not handled yet [" << argument->scale << "]"
+              << std::endl;
   if (argument->valid & BCC_USDT_ARGUMENT_DEREF_IDENT)
-    std::cerr << "defer ident is not handled yet [" << argument->deref_ident << "]" << std::endl;
+    std::cerr << "defer ident is not handled yet [" << argument->deref_ident
+              << "]" << std::endl;
 
   if (argument->valid & BCC_USDT_ARGUMENT_CONSTANT)
     return getInt64(argument->constant);
 
   Value *result = nullptr;
-  if (argument->valid & BCC_USDT_ARGUMENT_BASE_REGISTER_NAME) {
+  if (argument->valid & BCC_USDT_ARGUMENT_BASE_REGISTER_NAME)
+  {
     int offset = 0;
     offset = arch::offset(argument->base_register_name);
     if (offset < 0)
@@ -515,9 +544,12 @@ Value *IRBuilderBPF::CreateUSDTReadArgument(Value *ctx,
     // bpftrace's args are internally represented as 64 bit integers. However,
     // the underlying argument (of the target program) may be less than 64
     // bits. So we must be careful to zero out unused bits.
-    Value* reg = CreateGEP(ctx, getInt64(offset * sizeof(uintptr_t)), "load_register");
+    Value *reg = CreateGEP(ctx,
+                           getInt64(offset * sizeof(uintptr_t)),
+                           "load_register");
     AllocaInst *dst = CreateAllocaBPF(builtin.type, builtin.ident);
-    if (argument->valid & BCC_USDT_ARGUMENT_DEREF_OFFSET) {
+    if (argument->valid & BCC_USDT_ARGUMENT_DEREF_OFFSET)
+    {
       Value *ptr = CreateAdd(CreateLoad(getInt64Ty(), reg),
                              getInt64(argument->deref_offset));
       // Zero out `dst` here in case we read less than 64 bits
@@ -550,15 +582,20 @@ Value *IRBuilderBPF::CreateUSDTReadArgument(Value *ctx,
 
   void *usdt;
 
-  if (pid) {
-    //FIXME use attach_point->target when iovisor/bcc#2064 is merged
+  if (pid)
+  {
+    // FIXME use attach_point->target when iovisor/bcc#2064 is merged
     usdt = bcc_usdt_new_frompid(pid, nullptr);
-  } else {
+  }
+  else
+  {
     usdt = bcc_usdt_new_frompath(attach_point->target.c_str());
   }
 
-  if (usdt == nullptr) {
-    std::cerr << "failed to initialize usdt context for probe " << attach_point->target << std::endl;
+  if (usdt == nullptr)
+  {
+    std::cerr << "failed to initialize usdt context for probe "
+              << attach_point->target << std::endl;
     exit(-1);
   }
 
@@ -572,8 +609,9 @@ Value *IRBuilderBPF::CreateUSDTReadArgument(Value *ctx,
                             arg_num,
                             &argument) != 0)
   {
-    std::cerr << "couldn't get argument " << arg_num << " for " << attach_point->target << ":"
-              << attach_point->ns << ":" << attach_point->func << std::endl;
+    std::cerr << "couldn't get argument " << arg_num << " for "
+              << attach_point->target << ":" << attach_point->ns << ":"
+              << attach_point->func << std::endl;
     exit(-2);
   }
 
@@ -610,7 +648,9 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx __attribute__((unused)),
 #endif
 
   Function *parent = GetInsertBlock()->getParent();
-  BasicBlock *str_ne = BasicBlock::Create(module_.getContext(), "strcmp.false", parent);
+  BasicBlock *str_ne = BasicBlock::Create(module_.getContext(),
+                                          "strcmp.false",
+                                          parent);
   AllocaInst *store = CreateAllocaBPF(getInt8Ty(), "strcmp.result");
 
   CreateStore(getInt1(!inverse), store);
@@ -618,7 +658,9 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx __attribute__((unused)),
   const char *c_str = str.c_str();
   for (size_t i = 0; i < n; i++)
   {
-    BasicBlock *char_eq = BasicBlock::Create(module_.getContext(), "strcmp.loop", parent);
+    BasicBlock *char_eq = BasicBlock::Create(module_.getContext(),
+                                             "strcmp.loop",
+                                             parent);
 
     auto *ptr = CreateGEP(val, { getInt32(0), getInt32(i) });
     Value *l = CreateLoad(getInt8Ty(), ptr);
@@ -764,7 +806,8 @@ CallInst *IRBuilderBPF::CreateGetPidTgid()
   // u64 bpf_get_current_pid_tgid(void)
   // Return: current->tgid << 32 | current->pid
   FunctionType *getpidtgid_func_type = FunctionType::get(getInt64Ty(), false);
-  PointerType *getpidtgid_func_ptr_type = PointerType::get(getpidtgid_func_type, 0);
+  PointerType *getpidtgid_func_ptr_type = PointerType::get(getpidtgid_func_type,
+                                                           0);
   Constant *getpidtgid_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_get_current_pid_tgid),
@@ -791,7 +834,8 @@ CallInst *IRBuilderBPF::CreateGetUidGid()
   // u64 bpf_get_current_uid_gid(void)
   // Return: current_gid << 32 | current_uid
   FunctionType *getuidgid_func_type = FunctionType::get(getInt64Ty(), false);
-  PointerType *getuidgid_func_ptr_type = PointerType::get(getuidgid_func_type, 0);
+  PointerType *getuidgid_func_ptr_type = PointerType::get(getuidgid_func_type,
+                                                          0);
   Constant *getuidgid_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_get_current_uid_gid),
@@ -817,7 +861,8 @@ CallInst *IRBuilderBPF::CreateGetCurrentTask()
   // u64 bpf_get_current_task(void)
   // Return: current task_struct
   FunctionType *getcurtask_func_type = FunctionType::get(getInt64Ty(), false);
-  PointerType *getcurtask_func_ptr_type = PointerType::get(getcurtask_func_type, 0);
+  PointerType *getcurtask_func_ptr_type = PointerType::get(getcurtask_func_type,
+                                                           0);
   Constant *getcurtask_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_get_current_task),
@@ -830,7 +875,8 @@ CallInst *IRBuilderBPF::CreateGetRandom()
   // u64 bpf_get_prandom_u32(void)
   // Return: random
   FunctionType *getrandom_func_type = FunctionType::get(getInt64Ty(), false);
-  PointerType *getrandom_func_ptr_type = PointerType::get(getrandom_func_type, 0);
+  PointerType *getrandom_func_ptr_type = PointerType::get(getrandom_func_type,
+                                                          0);
   Constant *getrandom_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_get_prandom_u32),
@@ -851,7 +897,7 @@ CallInst *IRBuilderBPF::CreateGetStackId(Value *ctx,
 
   int flags = 0;
   if (ustack)
-    flags |= (1<<8);
+    flags |= (1 << 8);
   Value *flags_val = getInt64(flags);
 
   // int bpf_get_stackid(struct pt_regs *ctx, struct bpf_map *map, u64 flags)
@@ -860,7 +906,8 @@ CallInst *IRBuilderBPF::CreateGetStackId(Value *ctx,
       getInt64Ty(),
       { getInt8PtrTy(), map_ptr->getType(), getInt64Ty() },
       false);
-  PointerType *getstackid_func_ptr_type = PointerType::get(getstackid_func_type, 0);
+  PointerType *getstackid_func_ptr_type = PointerType::get(getstackid_func_type,
+                                                           0);
   Constant *getstackid_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_get_stackid),
@@ -917,22 +964,24 @@ void IRBuilderBPF::CreatePerfEventOutput(Value *ctx, Value *data, size_t size)
                                                            getInt64Ty() },
                                                          false);
 
-  PointerType *perfoutput_func_ptr_type = PointerType::get(perfoutput_func_type, 0);
+  PointerType *perfoutput_func_ptr_type = PointerType::get(perfoutput_func_type,
+                                                           0);
   Constant *perfoutput_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_perf_event_output),
       perfoutput_func_ptr_type);
-  CreateCall(perfoutput_func, {ctx, map_ptr, flags_val, data, size_val}, "perf_event_output");
+  CreateCall(perfoutput_func,
+             { ctx, map_ptr, flags_val, data, size_val },
+             "perf_event_output");
 }
 
 void IRBuilderBPF::CreateSignal(Value *ctx, Value *sig, const location &loc)
 {
   // int bpf_send_signal(u32 sig)
   // Return: 0 or error
-  FunctionType *signal_func_type = FunctionType::get(
-      getInt64Ty(),
-      {getInt32Ty()},
-      false);
+  FunctionType *signal_func_type = FunctionType::get(getInt64Ty(),
+                                                     { getInt32Ty() },
+                                                     false);
   PointerType *signal_func_ptr_type = PointerType::get(signal_func_type, 0);
   Constant *signal_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
@@ -949,7 +998,8 @@ void IRBuilderBPF::CreateOverrideReturn(Value *ctx, Value *rc)
   FunctionType *override_func_type = FunctionType::get(
       getInt64Ty(), { getInt8PtrTy(), getInt64Ty() }, false);
   PointerType *override_func_ptr_type = PointerType::get(override_func_type, 0);
-  Constant *override_func = ConstantExpr::getCast(Instruction::IntToPtr,
+  Constant *override_func = ConstantExpr::getCast(
+      Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_override_return),
       override_func_ptr_type);
   CreateCall(override_func, { ctx, rc }, "override");
@@ -1005,7 +1055,7 @@ void IRBuilderBPF::CreateHelperError(Value *ctx,
 
   if (!ignore_check_level &&
       (bpftrace_.helper_check_level_ == 0 ||
-      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
+       (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
     return;
 
   int error_id = helper_error_id_++;
@@ -1041,7 +1091,7 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   assert(ctx && ctx->getType() == getInt8PtrTy());
   if (!require_success &&
       (bpftrace_.helper_check_level_ == 0 ||
-      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
+       (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
     return;
 
   Function *parent = GetInsertBlock()->getParent();
@@ -1063,9 +1113,12 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   CreateCondBr(condition, helper_merge_block, helper_failure_block);
   SetInsertPoint(helper_failure_block);
   CreateHelperError(ctx, ret, func_id, loc, require_success);
-  if (require_success) {
+  if (require_success)
+  {
     CreateRet(ConstantInt::get(module_.getContext(), APInt(64, 0)));
-  } else {
+  }
+  else
+  {
     CreateBr(helper_merge_block);
   }
   SetInsertPoint(helper_merge_block);

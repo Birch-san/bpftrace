@@ -31,7 +31,8 @@ Integer::Integer(long n, location loc) : Expression(loc), n(n)
   is_literal = true;
 }
 
-void Integer::accept(Visitor &v) {
+void Integer::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -45,7 +46,8 @@ String::String(const std::string &str, location loc) : Expression(loc), str(str)
   is_literal = true;
 }
 
-void String::accept(Visitor &v) {
+void String::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -60,7 +62,8 @@ StackMode::StackMode(const std::string &mode, location loc)
   is_literal = true;
 }
 
-void StackMode::accept(Visitor &v) {
+void StackMode::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -73,7 +76,8 @@ Builtin::Builtin(const std::string &ident, location loc)
 {
 }
 
-void Builtin::accept(Visitor &v) {
+void Builtin::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -86,7 +90,8 @@ Identifier::Identifier(const std::string &ident, location loc)
 {
 }
 
-void Identifier::accept(Visitor &v) {
+void Identifier::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -104,7 +109,8 @@ PositionalParameter::PositionalParameter(PositionalParameterType ptype,
   is_literal = true;
 }
 
-void PositionalParameter::accept(Visitor &v) {
+void PositionalParameter::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -113,7 +119,8 @@ Call::Call(const std::string &func, location loc, ExpressionList *vargs)
 {
 }
 
-void Call::accept(Visitor &v) {
+void Call::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -139,7 +146,8 @@ Map::Map(const std::string &ident, ExpressionList *vargs, location loc)
   }
 }
 
-void Map::accept(Visitor &v) {
+void Map::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -154,7 +162,8 @@ Variable::Variable(const std::string &ident, location loc)
   is_variable = true;
 }
 
-void Variable::accept(Visitor &v) {
+void Variable::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -163,7 +172,8 @@ Binop::Binop(Expression *left, int op, Expression *right, location loc)
 {
 }
 
-void Binop::accept(Visitor &v) {
+void Binop::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -177,7 +187,8 @@ Unop::Unop(int op, Expression *expr, bool is_post_op, location loc)
 {
 }
 
-void Unop::accept(Visitor &v) {
+void Unop::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -194,7 +205,8 @@ Ternary::Ternary(Expression *cond,
 {
 }
 
-void Ternary::accept(Visitor &v) {
+void Ternary::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -215,7 +227,8 @@ FieldAccess::FieldAccess(Expression *expr, ssize_t index, location loc)
 {
 }
 
-void FieldAccess::accept(Visitor &v) {
+void FieldAccess::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -229,7 +242,8 @@ ArrayAccess::ArrayAccess(Expression *expr, Expression *indexpr, location loc)
 {
 }
 
-void ArrayAccess::accept(Visitor &v) {
+void ArrayAccess::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -246,7 +260,8 @@ Cast::Cast(const std::string &type,
 {
 }
 
-void Cast::accept(Visitor &v) {
+void Cast::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -273,7 +288,8 @@ ExprStatement::ExprStatement(Expression *expr, location loc)
 {
 }
 
-void ExprStatement::accept(Visitor &v) {
+void ExprStatement::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -283,7 +299,8 @@ AssignMapStatement::AssignMapStatement(Map *map, Expression *expr, location loc)
   expr->map = map;
 };
 
-void AssignMapStatement::accept(Visitor &v) {
+void AssignMapStatement::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -301,7 +318,8 @@ AssignVarStatement::AssignVarStatement(Variable *var,
   expr->var = var;
 }
 
-void AssignVarStatement::accept(Visitor &v) {
+void AssignVarStatement::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -313,7 +331,8 @@ Predicate::Predicate(Expression *expr, location loc) : Node(loc), expr(expr)
 {
 }
 
-void Predicate::accept(Visitor &v) {
+void Predicate::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -322,7 +341,8 @@ AttachPoint::AttachPoint(const std::string &raw_input, location loc)
 {
 }
 
-void AttachPoint::accept(Visitor &v) {
+void AttachPoint::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -335,7 +355,8 @@ If::If(Expression *cond, StatementList *stmts, StatementList *else_stmts)
 {
 }
 
-void If::accept(Visitor &v) {
+void If::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -344,7 +365,8 @@ Unroll::Unroll(Expression *expr, StatementList *stmts, location loc)
 {
 }
 
-void Unroll::accept(Visitor &v) {
+void Unroll::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -365,7 +387,8 @@ void Jump::accept(Visitor &v)
   v.visit(*this);
 }
 
-void Probe::accept(Visitor &v) {
+void Probe::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -374,7 +397,8 @@ Program::Program(const std::string &c_definitions, ProbeList *probes)
 {
 }
 
-void Program::accept(Visitor &v) {
+void Program::accept(Visitor &v)
+{
   v.visit(*this);
 }
 
@@ -395,25 +419,44 @@ std::string opstr(Jump &jump)
 
 std::string opstr(Binop &binop)
 {
-  switch (binop.op) {
-    case bpftrace::Parser::token::EQ:    return "==";
-    case bpftrace::Parser::token::NE:    return "!=";
-    case bpftrace::Parser::token::LE:    return "<=";
-    case bpftrace::Parser::token::GE:    return ">=";
-    case bpftrace::Parser::token::LT:    return "<";
-    case bpftrace::Parser::token::GT:    return ">";
-    case bpftrace::Parser::token::LAND:  return "&&";
-    case bpftrace::Parser::token::LOR:   return "||";
-    case bpftrace::Parser::token::LEFT:  return "<<";
-    case bpftrace::Parser::token::RIGHT: return ">>";
-    case bpftrace::Parser::token::PLUS:  return "+";
-    case bpftrace::Parser::token::MINUS: return "-";
-    case bpftrace::Parser::token::MUL:   return "*";
-    case bpftrace::Parser::token::DIV:   return "/";
-    case bpftrace::Parser::token::MOD:   return "%";
-    case bpftrace::Parser::token::BAND:  return "&";
-    case bpftrace::Parser::token::BOR:   return "|";
-    case bpftrace::Parser::token::BXOR:  return "^";
+  switch (binop.op)
+  {
+    case bpftrace::Parser::token::EQ:
+      return "==";
+    case bpftrace::Parser::token::NE:
+      return "!=";
+    case bpftrace::Parser::token::LE:
+      return "<=";
+    case bpftrace::Parser::token::GE:
+      return ">=";
+    case bpftrace::Parser::token::LT:
+      return "<";
+    case bpftrace::Parser::token::GT:
+      return ">";
+    case bpftrace::Parser::token::LAND:
+      return "&&";
+    case bpftrace::Parser::token::LOR:
+      return "||";
+    case bpftrace::Parser::token::LEFT:
+      return "<<";
+    case bpftrace::Parser::token::RIGHT:
+      return ">>";
+    case bpftrace::Parser::token::PLUS:
+      return "+";
+    case bpftrace::Parser::token::MINUS:
+      return "-";
+    case bpftrace::Parser::token::MUL:
+      return "*";
+    case bpftrace::Parser::token::DIV:
+      return "/";
+    case bpftrace::Parser::token::MOD:
+      return "%";
+    case bpftrace::Parser::token::BAND:
+      return "&";
+    case bpftrace::Parser::token::BOR:
+      return "|";
+    case bpftrace::Parser::token::BXOR:
+      return "^";
     default:
       std::cerr << "unknown binary operator" << std::endl;
       abort();
@@ -422,13 +465,20 @@ std::string opstr(Binop &binop)
 
 std::string opstr(Unop &unop)
 {
-  switch (unop.op) {
-    case bpftrace::Parser::token::LNOT: return "!";
-    case bpftrace::Parser::token::BNOT: return "~";
-    case bpftrace::Parser::token::MINUS: return "-";
-    case bpftrace::Parser::token::MUL: return "dereference";
-    case bpftrace::Parser::token::INCREMENT: return "++";
-    case bpftrace::Parser::token::DECREMENT: return "--";
+  switch (unop.op)
+  {
+    case bpftrace::Parser::token::LNOT:
+      return "!";
+    case bpftrace::Parser::token::BNOT:
+      return "~";
+    case bpftrace::Parser::token::MINUS:
+      return "-";
+    case bpftrace::Parser::token::MUL:
+      return "dereference";
+    case bpftrace::Parser::token::INCREMENT:
+      return "++";
+    case bpftrace::Parser::token::DECREMENT:
+      return "--";
     default:
       std::cerr << "unknown unary operator" << std::endl;
       abort();
@@ -459,12 +509,15 @@ std::string AttachPoint::name(const std::string &attach_point) const
   return n;
 }
 
-int AttachPoint::index(std::string name) {
-  if (index_.count(name) == 0) return 0;
+int AttachPoint::index(std::string name)
+{
+  if (index_.count(name) == 0)
+    return 0;
   return index_[name];
 }
 
-void AttachPoint::set_index(std::string name, int index) {
+void AttachPoint::set_index(std::string name, int index)
+{
   index_[name] = index;
 }
 
@@ -494,11 +547,13 @@ std::string Probe::name() const
   return n;
 }
 
-int Probe::index() {
+int Probe::index()
+{
   return index_;
 }
 
-void Probe::set_index(int index) {
+void Probe::set_index(int index)
+{
   index_ = index;
 }
 

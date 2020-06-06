@@ -1,7 +1,7 @@
 #include <cstring>
 #include <iostream>
-#include <unistd.h>
 #include <linux/version.h>
+#include <unistd.h>
 
 #include "bpftrace.h"
 #include "utils.h"
@@ -11,15 +11,29 @@
 
 namespace bpftrace {
 
-int Map::create_map(enum bpf_map_type map_type, const char *name, int key_size, int value_size, int max_entries, int flags) {
+int Map::create_map(enum bpf_map_type map_type,
+                    const char *name,
+                    int key_size,
+                    int value_size,
+                    int max_entries,
+                    int flags)
+{
 #ifdef HAVE_BCC_CREATE_MAP
-  return bcc_create_map(map_type, name, key_size, value_size, max_entries, flags);
+  return bcc_create_map(
+      map_type, name, key_size, value_size, max_entries, flags);
 #else
-  return bpf_create_map(map_type, name, key_size, value_size, max_entries, flags);
+  return bpf_create_map(
+      map_type, name, key_size, value_size, max_entries, flags);
 #endif
 }
 
-Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int min, int max, int step, int max_entries)
+Map::Map(const std::string &name,
+         const SizedType &type,
+         const MapKey &key,
+         int min,
+         int max,
+         int step,
+         int max_entries)
 {
   name_ = name;
   type_ = type;
@@ -46,7 +60,7 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
             type.IsAvgTy() || type.IsStatsTy()) &&
            (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)))
   {
-      map_type_ = BPF_MAP_TYPE_PERCPU_HASH;
+    map_type_ = BPF_MAP_TYPE_PERCPU_HASH;
   }
   else if (type.IsJoinTy() || type.IsFmtStrTy() || type.IsStringTy())
   {
@@ -59,7 +73,8 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
 
   int value_size = type.size;
   int flags = 0;
-  mapfd_ = create_map(map_type_, name.c_str(), key_size, value_size, max_entries, flags);
+  mapfd_ = create_map(
+      map_type_, name.c_str(), key_size, value_size, max_entries, flags);
   if (mapfd_ < 0)
   {
     std::cerr << "Error creating map: '" << name_ << "': " << strerror(errno)
@@ -67,11 +82,15 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
   }
 }
 
-Map::Map(const SizedType &type) {
+Map::Map(const SizedType &type)
+{
 #ifdef DEBUG
   // TODO (mmarchini): replace with DCHECK
-  if (!type.IsStack()) {
-    std::cerr << "Map::Map(SizedType) constructor should be called only with stack types" << std::endl;
+  if (!type.IsStack())
+  {
+    std::cerr << "Map::Map(SizedType) constructor should be called only with "
+                 "stack types"
+              << std::endl;
     abort();
   }
 #endif
@@ -83,15 +102,16 @@ Map::Map(const SizedType &type) {
   int flags = 0;
   enum bpf_map_type map_type = BPF_MAP_TYPE_STACK_TRACE;
 
-  mapfd_ = create_map(map_type, name.c_str(), key_size, value_size, max_entries, flags);
+  mapfd_ = create_map(
+      map_type, name.c_str(), key_size, value_size, max_entries, flags);
   if (mapfd_ < 0)
   {
     std::cerr << "Error creating stack id map" << std::endl;
     // TODO (mmarchini): Check perf_event_max_stack in the semantic_analyzer
     std::cerr << "This might have happened because kernel.perf_event_max_stack "
-      << "is smaller than " << type.stack_type.limit
-      << ". Try to tweak this value with "
-      << "sysctl kernel.perf_event_max_stack=<new value>" << std::endl;
+              << "is smaller than " << type.stack_type.limit
+              << ". Try to tweak this value with "
+              << "sysctl kernel.perf_event_max_stack=<new value>" << std::endl;
   }
 }
 
@@ -124,10 +144,12 @@ Map::Map(enum bpf_map_type map_type)
     abort();
   }
 
-  mapfd_ = create_map(map_type, name.c_str(), key_size, value_size, max_entries, flags);
+  mapfd_ = create_map(
+      map_type, name.c_str(), key_size, value_size, max_entries, flags);
   if (mapfd_ < 0)
   {
-    std::cerr << "Error creating " << name << " map: " << strerror(errno) << std::endl;
+    std::cerr << "Error creating " << name << " map: " << strerror(errno)
+              << std::endl;
   }
 }
 

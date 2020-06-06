@@ -27,7 +27,8 @@
 using namespace bpftrace;
 
 namespace {
-enum class OutputBufferConfig {
+enum class OutputBufferConfig
+{
   UNSET = 0,
   LINE,
   FULL,
@@ -88,7 +89,8 @@ void usage()
   // clang-format on
 }
 
-static void enforce_infinite_rlimit() {
+static void enforce_infinite_rlimit()
+{
   struct rlimit rl = {};
   int err;
 
@@ -96,9 +98,9 @@ static void enforce_infinite_rlimit() {
   rl.rlim_cur = rl.rlim_max;
   err = setrlimit(RLIMIT_MEMLOCK, &rl);
   if (err)
-    std::cerr << std::strerror(err)<<": couldn't set RLIMIT_MEMLOCK for " <<
-        "bpftrace. If your program is not loading, you can try " <<
-        "\"ulimit -l 8192\" to fix the problem" << std::endl;
+    std::cerr << std::strerror(err) << ": couldn't set RLIMIT_MEMLOCK for "
+              << "bpftrace. If your program is not loading, you can try "
+              << "\"ulimit -l 8192\" to fix the problem" << std::endl;
 }
 
 #ifdef BUILD_ASAN
@@ -106,7 +108,8 @@ static void cap_memory_limits()
 {
 }
 #else
-static void cap_memory_limits() {
+static void cap_memory_limits()
+{
   struct rlimit rl = {};
   int err;
   uint64_t memory_limit_bytes = 1 * 1024 * 1024 * 1024;
@@ -119,9 +122,10 @@ static void cap_memory_limits() {
   err = setrlimit(RLIMIT_AS, &rl);
   err += setrlimit(RLIMIT_RSS, &rl);
   if (err)
-    std::cerr << std::strerror(err)<<": couldn't set RLIMIT_AS and " <<
-        "RLIMIT_RSS for bpftrace (these are a temporary precaution to stop " <<
-        "accidental large program loads, and are not required" << std::endl;
+    std::cerr
+        << std::strerror(err) << ": couldn't set RLIMIT_AS and "
+        << "RLIMIT_RSS for bpftrace (these are a temporary precaution to stop "
+        << "accidental large program loads, and are not required" << std::endl;
 }
 #endif // BUILD_ASAN
 
@@ -129,7 +133,9 @@ bool is_root()
 {
   if (geteuid() != 0)
   {
-    std::cerr << "ERROR: bpftrace currently only supports running as the root user." << std::endl;
+    std::cerr
+        << "ERROR: bpftrace currently only supports running as the root user."
+        << std::endl;
     return false;
   }
   else
@@ -182,7 +188,7 @@ static int info()
   return 0;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
   int err;
   std::string pid_str;
@@ -209,8 +215,8 @@ int main(int argc, char *argv[])
   };
   std::vector<std::string> include_dirs;
   std::vector<std::string> include_files;
-  while ((c = getopt_long(
-              argc, argv, short_options, long_options, nullptr)) != -1)
+  while ((c = getopt_long(argc, argv, short_options, long_options, nullptr)) !=
+         -1)
   {
     switch (c)
     {
@@ -224,7 +230,8 @@ int main(int argc, char *argv[])
         break;
       case 'd':
         bt_debug++;
-        if (bt_debug == DebugLevel::kNone) {
+        if (bt_debug == DebugLevel::kNone)
+        {
           usage();
           return 1;
         }
@@ -233,14 +240,22 @@ int main(int argc, char *argv[])
         bt_verbose = true;
         break;
       case 'B':
-        if (std::strcmp(optarg, "line") == 0) {
+        if (std::strcmp(optarg, "line") == 0)
+        {
           obc = OutputBufferConfig::LINE;
-        } else if (std::strcmp(optarg, "full") == 0) {
+        }
+        else if (std::strcmp(optarg, "full") == 0)
+        {
           obc = OutputBufferConfig::FULL;
-        } else if (std::strcmp(optarg, "none") == 0) {
+        }
+        else if (std::strcmp(optarg, "none") == 0)
+        {
           obc = OutputBufferConfig::NONE;
-        } else {
-          std::cerr << "USAGE: -B must be either 'line', 'full', or 'none'." << std::endl;
+        }
+        else
+        {
+          std::cerr << "USAGE: -B must be either 'line', 'full', or 'none'."
+                    << std::endl;
           return 1;
         }
         break;
@@ -294,7 +309,8 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (argc == 1) {
+  if (argc == 1)
+  {
     usage();
     return 1;
   }
@@ -313,32 +329,39 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  std::ostream * os = &std::cout;
+  std::ostream* os = &std::cout;
   std::ofstream outputstream;
-  if (!output_file.empty()) {
+  if (!output_file.empty())
+  {
     outputstream.open(output_file);
-    if (outputstream.fail()) {
+    if (outputstream.fail())
+    {
       std::cerr << "Failed to open output file: \"" << output_file;
-      std::cerr << "\": " << strerror(errno) <<  std::endl;
+      std::cerr << "\": " << strerror(errno) << std::endl;
       return 1;
     }
     os = &outputstream;
   }
 
   std::unique_ptr<Output> output;
-  if (output_format.empty() || output_format == "text") {
+  if (output_format.empty() || output_format == "text")
+  {
     output = std::make_unique<TextOutput>(*os);
   }
-  else if (output_format == "json") {
+  else if (output_format == "json")
+  {
     output = std::make_unique<JsonOutput>(*os);
   }
-  else {
-    std::cerr << "Invalid output format \"" << output_format << "\"" << std::endl;
+  else
+  {
+    std::cerr << "Invalid output format \"" << output_format << "\""
+              << std::endl;
     std::cerr << "Valid formats: 'text', 'json'" << std::endl;
     return 1;
   }
 
-  switch (obc) {
+  switch (obc)
+  {
     case OutputBufferConfig::UNSET:
     case OutputBufferConfig::LINE:
       std::setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
@@ -381,7 +404,7 @@ int main(int argc, char *argv[])
     if (!is_root())
       return 1;
 
-    if (optind == argc-1)
+    if (optind == argc - 1)
       list_probes(bpftrace, argv[optind]);
     else if (optind == argc)
       list_probes(bpftrace, "");
@@ -485,7 +508,9 @@ int main(int argc, char *argv[])
       bpftrace.demangle_cpp_symbols_ = true;
     else
     {
-      std::cerr << "Env var 'BPFTRACE_NO_CPP_DEMANGLE' did not contain a valid value (0 or 1)." << std::endl;
+      std::cerr << "Env var 'BPFTRACE_NO_CPP_DEMANGLE' did not contain a valid "
+                   "value (0 or 1)."
+                << std::endl;
       return 1;
     }
   }
@@ -506,8 +531,11 @@ int main(int argc, char *argv[])
   {
     uint64_t proposed;
     std::istringstream stringstream(env_p);
-    if (!(stringstream >> proposed)) {
-      std::cerr << "Env var 'BPFTRACE_CAT_BYTES_MAX' did not contain a valid uint64_t, or was zero-valued." << std::endl;
+    if (!(stringstream >> proposed))
+    {
+      std::cerr << "Env var 'BPFTRACE_CAT_BYTES_MAX' did not contain a valid "
+                   "uint64_t, or was zero-valued."
+                << std::endl;
       return 1;
     }
     bpftrace.cat_bytes_max_ = proposed;
@@ -522,7 +550,9 @@ int main(int argc, char *argv[])
       bpftrace.resolve_user_symbols_ = true;
     else
     {
-      std::cerr << "Env var 'BPFTRACE_NO_USER_SYMBOLS' did not contain a valid value (0 or 1)." << std::endl;
+      std::cerr << "Env var 'BPFTRACE_NO_USER_SYMBOLS' did not contain a valid "
+                   "value (0 or 1)."
+                << std::endl;
       return 1;
     }
   }
@@ -658,11 +688,13 @@ int main(int argc, char *argv[])
   }
   else if (num_probes > bpftrace.max_probes_)
   {
-    std::cerr << "Can't attach to " << num_probes << " probes because it "
-      << "exceeds the current limit of " << bpftrace.max_probes_ << " probes."
-      << std::endl << "You can increase the limit through the BPFTRACE_MAX_PROBES "
-      << "environment variable, but BE CAREFUL since a high number of probes "
-      << "attached can cause your system to crash." << std::endl;
+    std::cerr
+        << "Can't attach to " << num_probes << " probes because it "
+        << "exceeds the current limit of " << bpftrace.max_probes_ << " probes."
+        << std::endl
+        << "You can increase the limit through the BPFTRACE_MAX_PROBES "
+        << "environment variable, but BE CAREFUL since a high number of probes "
+        << "attached can cause your system to crash." << std::endl;
     return 1;
   }
   else

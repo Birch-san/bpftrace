@@ -1,14 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <set>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <string_view>
-#include <cstddef>
 
 #include "ast.h"
 #include "attached_probe.h"
@@ -70,7 +70,9 @@ inline DebugLevel operator++(DebugLevel &level, int)
 class WildcardException : public std::exception
 {
 public:
-  WildcardException(const std::string &msg) : msg_(msg) {}
+  WildcardException(const std::string &msg) : msg_(msg)
+  {
+  }
 
   const char *what() const noexcept override
   {
@@ -87,19 +89,23 @@ struct HelperErrorInfo
   location loc;
 };
 
-struct PerfEventCallbackCookie {
-  PerfEventCallbackCookie(BPFtrace* bpftrace, int cpu)
-  : bpftrace(bpftrace)
-  , cpu(cpu)
-  {}
-  BPFtrace* bpftrace;
+struct PerfEventCallbackCookie
+{
+  PerfEventCallbackCookie(BPFtrace *bpftrace, int cpu)
+      : bpftrace(bpftrace), cpu(cpu)
+  {
+  }
+  BPFtrace *bpftrace;
   int cpu;
 };
 
 class BPFtrace
 {
 public:
-  BPFtrace(std::unique_ptr<Output> o = std::make_unique<TextOutput>(std::cout)) : out_(std::move(o)),ncpus_(get_possible_cpus().size()) { }
+  BPFtrace(std::unique_ptr<Output> o = std::make_unique<TextOutput>(std::cout))
+      : out_(std::move(o)), ncpus_(get_possible_cpus().size())
+  {
+  }
   virtual ~BPFtrace();
   virtual int add_probe(ast::Probe &p);
   int num_probes() const;
@@ -108,23 +114,34 @@ public:
   int clear_map(IMap &map);
   int zero_map(IMap &map);
   int print_map(IMap &map, uint32_t top, uint32_t div);
-  inline int next_probe_id() {
+  inline int next_probe_id()
+  {
     return next_probe_id_++;
   };
-  inline void source(std::string filename, std::string source) {
+  inline void source(std::string filename, std::string source)
+  {
     src_ = source;
     filename_ = filename;
   }
-  inline const std::string &source() { return src_; }
+  inline const std::string &source()
+  {
+    return src_;
+  }
   inline IMap &get_map_by_id(uint32_t id)
   {
     return *maps_[map_ids_[id]].get();
   };
-  std::string get_stack(uint64_t stackidpid, bool ustack, StackType stack_type, int indent=0);
+  std::string get_stack(uint64_t stackidpid,
+                        bool ustack,
+                        StackType stack_type,
+                        int indent = 0);
   std::string resolve_buf(char *buf, size_t size);
-  std::string resolve_ksym(uintptr_t addr, bool show_offset=false);
-  std::string resolve_usym(uintptr_t addr, int pid, bool show_offset=false, bool show_module=false);
-  std::string resolve_inet(int af, const uint8_t* inet) const;
+  std::string resolve_ksym(uintptr_t addr, bool show_offset = false);
+  std::string resolve_usym(uintptr_t addr,
+                           int pid,
+                           bool show_offset = false,
+                           bool show_module = false);
+  std::string resolve_inet(int af, const uint8_t *inet) const;
   std::string resolve_uid(uintptr_t addr) const;
   uint64_t resolve_kname(const std::string &name) const;
   virtual int resolve_uname(const std::string &name,
@@ -134,17 +151,23 @@ public:
                                std::vector<uint8_t> value,
                                bool is_per_cpu,
                                uint32_t div);
-  virtual std::string extract_func_symbols_from_path(const std::string &path) const;
+  virtual std::string extract_func_symbols_from_path(
+      const std::string &path) const;
   std::string resolve_probe(uint64_t probe_id) const;
   uint64_t resolve_cgroupid(const std::string &path) const;
-  std::vector<std::unique_ptr<IPrintable>> get_arg_values(const std::vector<Field> &args, uint8_t* arg_data);
+  std::vector<std::unique_ptr<IPrintable>> get_arg_values(
+      const std::vector<Field> &args,
+      uint8_t *arg_data);
   void add_param(const std::string &param);
   std::string get_param(size_t index, bool is_str) const;
   size_t num_params() const;
   void request_finalize();
   void error(std::ostream &out, const location &l, const std::string &m);
   void warning(std::ostream &out, const location &l, const std::string &m);
-  void log_with_location(std::string, std::ostream &, const location &, const std::string &);
+  void log_with_location(std::string,
+                         std::ostream &,
+                         const location &,
+                         const std::string &);
   bool is_aslr_enabled(int pid);
 
   std::string cmd_;
@@ -232,7 +255,7 @@ private:
                         const BpfOrc &bpforc,
                         void (*trigger)(void));
   std::vector<std::unique_ptr<AttachedProbe>> attached_probes_;
-  void* ksyms_{nullptr};
+  void *ksyms_{ nullptr };
   std::map<std::string, std::pair<int, void *>> exe_sym_; // exe -> (pid, cache)
   int ncpus_;
   int online_cpus_;

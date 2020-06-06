@@ -8,10 +8,10 @@
 #include "irbuilderbpf.h"
 #include "map.h"
 
-#include <llvm/Support/raw_os_ostream.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Support/raw_os_ostream.h>
 
 namespace bpftrace {
 namespace ast {
@@ -20,22 +20,24 @@ using namespace llvm;
 
 using CallArgs = std::vector<std::tuple<std::string, std::vector<Field>>>;
 
-class CodegenLLVM : public Visitor {
+class CodegenLLVM : public Visitor
+{
 public:
-  explicit CodegenLLVM(Node *root, BPFtrace &bpftrace) :
-    root_(root),
-    module_(std::make_unique<Module>("bpftrace", context_)),
-    b_(context_, *module_.get(), bpftrace),
-    layout_(module_.get()),
-    bpftrace_(bpftrace)
-    { }
+  explicit CodegenLLVM(Node *root, BPFtrace &bpftrace)
+      : root_(root),
+        module_(std::make_unique<Module>("bpftrace", context_)),
+        b_(context_, *module_.get(), bpftrace),
+        layout_(module_.get()),
+        bpftrace_(bpftrace)
+  {
+  }
 
   void visit(Integer &integer) override;
   void visit(PositionalParameter &param) override;
   void visit(String &string) override;
   void visit(Identifier &identifier) override;
   void visit(Builtin &builtin) override;
-  void visit(StackMode &) override { };
+  void visit(StackMode &) override{};
   void visit(Call &call) override;
   void visit(Map &map) override;
   void visit(Variable &var) override;
@@ -59,18 +61,22 @@ public:
   void visit(Program &program) override;
   AllocaInst *getMapKey(Map &map);
   AllocaInst *getHistMapKey(Map &map, Value *log2);
-  int         getNextIndexForProbe(const std::string &probe_name);
+  int getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);
-  Value      *createLogicalAnd(Binop &binop);
-  Value      *createLogicalOr(Binop &binop);
+  Value *createLogicalAnd(Binop &binop);
+  Value *createLogicalOr(Binop &binop);
 
   void DumpIR();
   void DumpIR(llvm::raw_os_ostream &out);
   void createLog2Function();
   void createLinearFunction();
-  void createFormatStringCall(Call &call, int &id, CallArgs &call_args,
-                              const std::string &call_name, AsyncAction async_action);
-  std::unique_ptr<BpfOrc> compile(DebugLevel debug=DebugLevel::kNone, std::ostream &out=std::cout);
+  void createFormatStringCall(Call &call,
+                              int &id,
+                              CallArgs &call_args,
+                              const std::string &call_name,
+                              AsyncAction async_action);
+  std::unique_ptr<BpfOrc> compile(DebugLevel debug = DebugLevel::kNone,
+                                  std::ostream &out = std::cout);
 
 private:
   void generateProbe(Probe &probe,

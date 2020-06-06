@@ -63,7 +63,8 @@ struct StackType
   size_t limit = DEFAULT_STACK_SIZE;
   StackMode mode = StackMode::bpftrace;
 
-  bool operator ==(const StackType &obj) const {
+  bool operator==(const StackType &obj) const
+  {
     return limit == obj.limit && mode == obj.mode;
   }
 };
@@ -71,7 +72,9 @@ struct StackType
 class SizedType
 {
 public:
-  SizedType() : type(Type::none), size(0) { }
+  SizedType() : type(Type::none), size(0)
+  {
+  }
   SizedType(Type type,
             size_t size_,
             bool is_signed,
@@ -88,7 +91,7 @@ public:
   Type elem_type = Type::none; // Array element type if accessing elements of an
                                // array
 
-  size_t size;                 // in bytes
+  size_t size; // in bytes
   StackType stack_type;
   std::string cast_type;
   bool is_internal = false;
@@ -331,8 +334,7 @@ struct ProbeItem
   ProbeType type;
 };
 
-const std::vector<ProbeItem> PROBE_LIST =
-{
+const std::vector<ProbeItem> PROBE_LIST = {
   { "kprobe", "k", ProbeType::kprobe },
   { "kretprobe", "kr", ProbeType::kretprobe },
   { "uprobe", "u", ProbeType::uprobe },
@@ -358,20 +360,20 @@ std::string probetypeName(ProbeType t);
 struct Probe
 {
   ProbeType type;
-  std::string path;             // file path if used
-  std::string attach_point;     // probe name (last component)
-  std::string orig_name;        // original full probe name,
-                                // before wildcard expansion
-  std::string name;             // full probe name
-  std::string ns;               // for USDT probes, if provider namespace not from path
-  uint64_t loc;                 // for USDT probes
-  int usdt_location_idx = 0;    // to disambiguate duplicate USDT markers
+  std::string path;         // file path if used
+  std::string attach_point; // probe name (last component)
+  std::string orig_name;    // original full probe name,
+                            // before wildcard expansion
+  std::string name;         // full probe name
+  std::string ns; // for USDT probes, if provider namespace not from path
+  uint64_t loc;   // for USDT probes
+  int usdt_location_idx = 0; // to disambiguate duplicate USDT markers
   uint64_t log_size;
   int index = 0;
   int freq;
   pid_t pid = -1;
-  uint64_t len = 0;             // for watchpoint probes, size of region
-  std::string mode;             // for watchpoint probes, watch mode (rwx)
+  uint64_t len = 0; // for watchpoint probes, size of region
+  std::string mode; // for watchpoint probes, watch mode (rwx)
   uint64_t address = 0;
   uint64_t func_offset = 0;
 };

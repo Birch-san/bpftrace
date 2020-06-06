@@ -13,7 +13,8 @@ namespace ast {
 
 class Visitor;
 
-class Node {
+class Node
+{
 public:
   Node();
   Node(location loc);
@@ -24,13 +25,14 @@ public:
 
 class Map;
 class Variable;
-class Expression : public Node {
+class Expression : public Node
+{
 public:
   Expression();
   Expression(location loc);
   SizedType type;
   Map *key_for_map = nullptr;
-  Map *map = nullptr; // Only set when this expression is assigned to a map
+  Map *map = nullptr;      // Only set when this expression is assigned to a map
   Variable *var = nullptr; // Set when this expression is assigned to a variable
   bool is_literal = false;
   bool is_variable = false;
@@ -38,7 +40,8 @@ public:
 };
 using ExpressionList = std::vector<Expression *>;
 
-class Integer : public Expression {
+class Integer : public Expression
+{
 public:
   explicit Integer(long n);
   explicit Integer(long n, location loc);
@@ -47,7 +50,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class PositionalParameter : public Expression {
+class PositionalParameter : public Expression
+{
 public:
   explicit PositionalParameter(PositionalParameterType ptype, long n);
   explicit PositionalParameter(PositionalParameterType ptype,
@@ -60,7 +64,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class String : public Expression {
+class String : public Expression
+{
 public:
   explicit String(const std::string &str);
   explicit String(const std::string &str, location loc);
@@ -69,7 +74,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class StackMode : public Expression {
+class StackMode : public Expression
+{
 public:
   explicit StackMode(const std::string &mode);
   explicit StackMode(const std::string &mode, location loc);
@@ -78,7 +84,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Identifier : public Expression {
+class Identifier : public Expression
+{
 public:
   explicit Identifier(const std::string &ident);
   explicit Identifier(const std::string &ident, location loc);
@@ -87,7 +94,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Builtin : public Expression {
+class Builtin : public Expression
+{
 public:
   explicit Builtin(const std::string &ident);
   explicit Builtin(const std::string &ident, location loc);
@@ -97,7 +105,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Call : public Expression {
+class Call : public Expression
+{
 public:
   Call(const std::string &func, location loc, ExpressionList *vargs = nullptr);
   std::string func;
@@ -106,7 +115,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Map : public Expression {
+class Map : public Expression
+{
 public:
   explicit Map(const std::string &ident, location loc);
   Map(const std::string &ident, ExpressionList *vargs);
@@ -118,7 +128,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Variable : public Expression {
+class Variable : public Expression
+{
 public:
   explicit Variable(const std::string &ident);
   explicit Variable(const std::string &ident, location loc);
@@ -127,7 +138,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Binop : public Expression {
+class Binop : public Expression
+{
 public:
   Binop(Expression *left, int op, Expression *right, location loc);
   Expression *left, *right;
@@ -136,7 +148,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Unop : public Expression {
+class Unop : public Expression
+{
 public:
   Unop(int op, Expression *expr, location loc = location());
   Unop(int op,
@@ -150,7 +163,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class FieldAccess : public Expression {
+class FieldAccess : public Expression
+{
 public:
   FieldAccess(Expression *expr, const std::string &field);
   FieldAccess(Expression *expr, const std::string &field, location loc);
@@ -162,7 +176,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class ArrayAccess : public Expression {
+class ArrayAccess : public Expression
+{
 public:
   ArrayAccess(Expression *expr, Expression *indexpr);
   ArrayAccess(Expression *expr, Expression *indexpr, location loc);
@@ -172,7 +187,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Cast : public Expression {
+class Cast : public Expression
+{
 public:
   Cast(const std::string &type, bool is_pointer, Expression *expr);
   Cast(const std::string &type,
@@ -195,14 +211,16 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Statement : public Node {
+class Statement : public Node
+{
 public:
   Statement() = default;
   Statement(location loc);
 };
 using StatementList = std::vector<Statement *>;
 
-class ExprStatement : public Statement {
+class ExprStatement : public Statement
+{
 public:
   explicit ExprStatement(Expression *expr);
   explicit ExprStatement(Expression *expr, location loc);
@@ -211,7 +229,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class AssignMapStatement : public Statement {
+class AssignMapStatement : public Statement
+{
 public:
   AssignMapStatement(Map *map, Expression *expr, location loc = location());
   Map *map;
@@ -220,7 +239,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class AssignVarStatement : public Statement {
+class AssignVarStatement : public Statement
+{
 public:
   AssignVarStatement(Variable *var, Expression *expr);
   AssignVarStatement(Variable *var, Expression *expr, location loc);
@@ -230,7 +250,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class If : public Statement {
+class If : public Statement
+{
 public:
   If(Expression *cond, StatementList *stmts);
   If(Expression *cond, StatementList *stmts, StatementList *else_stmts);
@@ -241,7 +262,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Unroll : public Statement {
+class Unroll : public Statement
+{
 public:
   Unroll(Expression *expr, StatementList *stmts, location loc);
   long int var = 0;
@@ -264,7 +286,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Predicate : public Node {
+class Predicate : public Node
+{
 public:
   explicit Predicate(Expression *expr);
   explicit Predicate(Expression *expr, location loc);
@@ -273,7 +296,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Ternary : public Expression {
+class Ternary : public Expression
+{
 public:
   Ternary(Expression *cond, Expression *left, Expression *right);
   Ternary(Expression *cond, Expression *left, Expression *right, location loc);
@@ -296,7 +320,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class AttachPoint : public Node {
+class AttachPoint : public Node
+{
 public:
   explicit AttachPoint(const std::string &raw_input, location loc = location());
 
@@ -307,7 +332,8 @@ public:
   std::string target;
   std::string ns;
   std::string func;
-  usdt_probe_entry usdt; // resolved USDT entry, used to support arguments with wildcard matches
+  usdt_probe_entry usdt; // resolved USDT entry, used to support arguments with
+                         // wildcard matches
   int freq = 0;
   uint64_t len = 0; // for watchpoint probes, the width of watched addr
   std::string mode; // for watchpoint probes, the watch mode
@@ -320,12 +346,14 @@ public:
 
   int index(std::string name);
   void set_index(std::string name, int index);
+
 private:
   std::map<std::string, int> index_;
 };
 using AttachPointList = std::vector<AttachPoint *>;
 
-class Probe : public Node {
+class Probe : public Node
+{
 public:
   Probe(AttachPointList *attach_points, Predicate *pred, StatementList *stmts);
 
@@ -335,17 +363,19 @@ public:
 
   void accept(Visitor &v) override;
   std::string name() const;
-  bool need_expansion = false;        // must build a BPF program per wildcard match
-  bool need_tp_args_structs = false;  // must import struct for tracepoints
+  bool need_expansion = false; // must build a BPF program per wildcard match
+  bool need_tp_args_structs = false; // must import struct for tracepoints
 
   int index();
   void set_index(int index);
+
 private:
   int index_ = 0;
 };
 using ProbeList = std::vector<Probe *>;
 
-class Program : public Node {
+class Program : public Node
+{
 public:
   Program(const std::string &c_definitions, ProbeList *probes);
   std::string c_definitions;
@@ -354,7 +384,8 @@ public:
   void accept(Visitor &v) override;
 };
 
-class Visitor {
+class Visitor
+{
 public:
   virtual ~Visitor() = default;
   virtual void visit(Integer &integer) = 0;
