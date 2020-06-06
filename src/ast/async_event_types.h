@@ -93,21 +93,5 @@ struct HelperError
   }
 } __attribute__((packed));
 
-struct MapLookupElemErr
-{
-  uint64_t printf_id;
-  int64_t error_id;
-  int64_t return_value;
-
-  static std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b)
-  {
-    return {
-      b.getInt64Ty(), // printf_id
-      b.getInt64Ty(), // error_id
-      b.getInt64Ty(), // return_value
-    };
-  }
-}; // deliberately not packed; IRBuilder specifies isPacked=false
-
 } // namespace AsyncEvent
 } // namespace bpftrace

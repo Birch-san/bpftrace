@@ -391,7 +391,6 @@ enum class AsyncAction
   time,
   join,
   helper_error,
-  map_lookup_elem_err,
   // clang-format on
 };
 
