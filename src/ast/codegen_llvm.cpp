@@ -2378,12 +2378,22 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   b_.SetInsertPoint(zero);
 
   b_.CreateMapLookupElemError(ctx_, call.loc);
-  b_.CreateExit();
+  // b_.CreateExit();
+  b_.CreateRet(ConstantInt::get(module_->getContext(), APInt(64, 0)));
 
-  b_.CreateBr(done);
+  // b_.CreateBr(done);
+
+  // // create an unreachable basic block for all the "dead instructions" that
+  // // may come after exit(). If we don't, LLVM will emit the instructions
+  // // leading to a `unreachable insn` warning from the verifier
+  // BasicBlock *deadcode = BasicBlock::Create(module_->getContext(),
+  //                                           "deadcode",
+  //                                           parent);
+  // b_.SetInsertPoint(deadcode);
 
   // done
   b_.SetInsertPoint(done);
+  // b_.CreateLifetimeEnd(fmt_args);
   expr_ = nullptr;
 }
 

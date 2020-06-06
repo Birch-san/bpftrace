@@ -1089,10 +1089,10 @@ CallInst* IRBuilderBPF::CreateExit() {
   FunctionType *func_ty = FunctionType::get(getVoidTy(), false);
   InlineAsm *inlineAsm = InlineAsm::get(func_ty, "exit", {}, false);
   CallInst *call = CreateCall(inlineAsm);
-  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoUnwind);
+  call->addAttribute(AttributeList::FunctionIndex, Attribute::NoUnwind);
   // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
   // call->addAttribute(AttributeList::FunctionIndex, Attribute::ReadNone);
-  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoReturn);
+  call->addAttribute(AttributeList::FunctionIndex, Attribute::NoReturn);
   return call;
 }
 
