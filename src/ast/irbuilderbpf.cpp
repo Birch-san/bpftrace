@@ -1031,16 +1031,16 @@ void IRBuilderBPF::CreateMapLookupElemError(Value *ctx, const location& loc) {
   int error_id = map_lookup_elem_error_id_++;
   bpftrace_.map_lookup_elem_error_info_[error_id] = { .loc = loc };
 
-  StructType* nullmap_struct = StructType::create(AsyncEvent::MapLookupElemErr::asLLVMType(*this), "map_lookup_elem_err_t", false);
+  StructType* err_struct = StructType::create(AsyncEvent::MapLookupElemErr::asLLVMType(*this), "map_lookup_elem_err_t", false);
   auto &layout = module_.getDataLayout();
-  int nullmap_struct_size = layout.getTypeAllocSize(nullmap_struct);
-  AllocaInst *nullmap_perfdata = CreateAllocaBPF(nullmap_struct, "map_lookup_elem_err");
+  int err_struct_size = layout.getTypeAllocSize(err_struct);
+  AllocaInst *err_perfdata = CreateAllocaBPF(err_struct, "map_lookup_elem_err");
   CreateStore(getInt64(asyncactionint(AsyncAction::map_lookup_elem_err)),
-                CreateGEP(nullmap_perfdata, { getInt64(0), getInt32(0) }));
+                CreateGEP(err_perfdata, { getInt64(0), getInt32(0) }));
   CreateStore(getInt64(error_id),
-                CreateGEP(nullmap_perfdata, { getInt64(0), getInt32(1) }));
-  CreatePerfEventOutput(ctx, nullmap_perfdata, nullmap_struct_size);
-  CreateLifetimeEnd(nullmap_perfdata);
+                CreateGEP(err_perfdata, { getInt64(0), getInt32(1) }));
+  CreatePerfEventOutput(ctx, err_perfdata, err_struct_size);
+  CreateLifetimeEnd(err_perfdata);
 }
 
 // Report error if a return value < 0 (or return value == 0 if compare_zero is
@@ -1089,6 +1089,10 @@ CallInst* IRBuilderBPF::CreateExit() {
   FunctionType *func_ty = FunctionType::get(getVoidTy(), false);
   InlineAsm *inlineAsm = InlineAsm::get(func_ty, "exit", {}, false);
   CallInst *call = CreateCall(inlineAsm);
+  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoUnwind);
+  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
+  // call->addAttribute(AttributeList::FunctionIndex, Attribute::ReadNone);
+  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoReturn);
   return call;
 }
 
