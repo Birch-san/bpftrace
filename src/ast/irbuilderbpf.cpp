@@ -245,7 +245,7 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
   CreateStore(getInt32(0), key);
 
   CallInst *call = createMapLookup(bpftrace_.str_map_->mapfd_, key);
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, true);
+  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, /*compare_zero=*/true, /*require_success=*/true);
   return call;
 }
 
@@ -266,7 +266,7 @@ CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx, StructType *printf_struct
       getInt64(BPF_FUNC_map_lookup_elem),
       lookup_func_ptr_type);
   CallInst *call = CreateCall(lookup_func, {map_ptr, key}, "lookup_fmtstr_map");
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, true);
+  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, /*compare_zero=*/true, /*require_success=*/true);
   return call;
 }
 
@@ -997,13 +997,15 @@ static bool return_zero_if_err(libbpf::bpf_func_id func_id)
 void IRBuilderBPF::CreateHelperError(Value *ctx,
                                      Value *return_value,
                                      libbpf::bpf_func_id func_id,
-                                     const location &loc)
+                                     const location &loc,
+                                     bool ignore_check_level)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
   assert(return_value && return_value->getType() == getInt32Ty());
 
-  if (bpftrace_.helper_check_level_ == 0 ||
-      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id)))
+  if (!ignore_check_level &&
+      (bpftrace_.helper_check_level_ == 0 ||
+      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
     return;
 
   int error_id = helper_error_id_++;
@@ -1033,11 +1035,13 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
                                          Value *return_value,
                                          libbpf::bpf_func_id func_id,
                                          const location &loc,
-                                         bool compare_zero)
+                                         bool compare_zero,
+                                         bool require_success)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
-  if (bpftrace_.helper_check_level_ == 0 ||
-      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id)))
+  if (!require_success &&
+      (bpftrace_.helper_check_level_ == 0 ||
+      (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
     return;
 
   Function *parent = GetInsertBlock()->getParent();
@@ -1058,8 +1062,12 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
     condition = CreateICmpSGE(ret, Constant::getNullValue(ret->getType()));
   CreateCondBr(condition, helper_merge_block, helper_failure_block);
   SetInsertPoint(helper_failure_block);
-  CreateHelperError(ctx, ret, func_id, loc);
-  CreateBr(helper_merge_block);
+  CreateHelperError(ctx, ret, func_id, loc, require_success);
+  if (require_success) {
+    CreateRet(ConstantInt::get(module_.getContext(), APInt(64, 0)));
+  } else {
+    CreateBr(helper_merge_block);
+  }
   SetInsertPoint(helper_merge_block);
 }
 

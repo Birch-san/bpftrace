@@ -478,18 +478,6 @@ void CodegenLLVM::visit(Call &call)
   else if (call.func == "str")
   {
     CallInst *str_map = b_.CreateGetStrMap(ctx_, call.loc);
-    Function *parent = b_.GetInsertBlock()->getParent();
-    BasicBlock *zero = BasicBlock::Create(module_->getContext(), "strzero", parent);
-    BasicBlock *notzero = BasicBlock::Create(module_->getContext(), "strnotzero", parent);
-    
-    b_.CreateCondBr(
-      b_.CreateICmpNE(
-        str_map,
-        ConstantExpr::getCast(Instruction::IntToPtr, b_.getInt64(0), b_.getInt8PtrTy()),
-        "strzerocond"),
-      notzero, zero);
-
-    b_.SetInsertPoint(notzero);
 
     auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
@@ -521,11 +509,7 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = str_map;
-    expr_points_to_map_value = true;
-    b_.CreateBr(zero);
-
-    // done
-    b_.SetInsertPoint(zero);
+    expr_points_to_map_value_ = true;
   }
   else if (call.func == "buf")
   {
@@ -2326,15 +2310,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   int asyncId = id + asyncactionint(async_action);
   Value *fmt_args = b_.CreateGetFmtStrMap(ctx_, fmt_struct, call.loc);
 
-  Function *parent = b_.GetInsertBlock()->getParent();
-  BasicBlock *zero = BasicBlock::Create(module_->getContext(), "fmtstrzero", parent);
-  BasicBlock *notzero = BasicBlock::Create(module_->getContext(), "fmtstrnotzero", parent);
-
   auto fmt_struct_ptr_ty = PointerType::get(fmt_struct, 0);
-  auto null_ptr = ConstantExpr::getCast(Instruction::IntToPtr, b_.getInt64(0), fmt_struct_ptr_ty);
-  b_.CreateCondBr(b_.CreateICmpNE(fmt_args, null_ptr, "fmtstrcond"), notzero, zero);
-
-  b_.SetInsertPoint(notzero);
 
   auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
@@ -2347,13 +2323,13 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   {
     Expression &arg = *call.vargs->at(i);
     expr_deleter_ = nullptr;
-    expr_points_to_map_value = false;
+    expr_points_to_map_value_ = false;
     arg.accept(*this);
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
     // TODO: consider checking whether expr_ is a nullptr to map value
     if (arg.type.IsAggregate())
     {
-      if (expr_points_to_map_value) {
+      if (expr_points_to_map_value_) {
         b_.CreateProbeRead(ctx_, offset, arg.type.size, expr_, call.loc);
       } else {
         b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
@@ -2372,10 +2348,6 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   b_.CreatePerfEventOutput(ctx_, fmt_args, struct_size);
   b_.CreateLifetimeEnd(fmt_args);
 
-  b_.CreateBr(zero);
-
-  // done
-  b_.SetInsertPoint(zero);
   expr_ = nullptr;
 }
 
