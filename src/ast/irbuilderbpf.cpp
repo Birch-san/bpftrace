@@ -1027,7 +1027,7 @@ void IRBuilderBPF::CreateHelperError(Value *ctx,
   CreateLifetimeEnd(buf);
 }
 
-void IRBuilderBPF::CreateMapLookupElemError(Value *ctx, const location& loc) {
+void IRBuilderBPF::CreateMapLookupElemError(Value *ctx, Value *return_value, const location& loc) {
   int error_id = map_lookup_elem_error_id_++;
   bpftrace_.map_lookup_elem_error_info_[error_id] = { .loc = loc };
 
@@ -1039,6 +1039,8 @@ void IRBuilderBPF::CreateMapLookupElemError(Value *ctx, const location& loc) {
                 CreateGEP(err_perfdata, { getInt64(0), getInt32(0) }));
   CreateStore(getInt64(error_id),
                 CreateGEP(err_perfdata, { getInt64(0), getInt32(1) }));
+  CreateStore(return_value,
+                CreateGEP(err_perfdata, { getInt64(0), getInt32(2) }));
   CreatePerfEventOutput(ctx, err_perfdata, err_struct_size);
   CreateLifetimeEnd(err_perfdata);
 }
@@ -1077,23 +1079,6 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   CreateHelperError(ctx, ret, func_id, loc);
   CreateBr(helper_merge_block);
   SetInsertPoint(helper_merge_block);
-}
-
-/*
- * The LLVM BPF target does not support core::intrinsics::abort().
- * Thanks to Alessandro Decina for explaining how to emit an exit instruction
- * https://blog.redsift.com/labs/oxidised-ebpf-ii-taming-llvm/
- * https://github.com/redsift/redbpf/blob/320e3d1/cargo-bpf/src/llvm.rs#L83
- */
-CallInst* IRBuilderBPF::CreateExit() {
-  FunctionType *func_ty = FunctionType::get(getVoidTy(), false);
-  InlineAsm *inlineAsm = InlineAsm::get(func_ty, "exit", {}, false);
-  CallInst *call = CreateCall(inlineAsm);
-  call->addAttribute(AttributeList::FunctionIndex, Attribute::NoUnwind);
-  // call->addAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
-  // call->addAttribute(AttributeList::FunctionIndex, Attribute::ReadNone);
-  call->addAttribute(AttributeList::FunctionIndex, Attribute::NoReturn);
-  return call;
 }
 
 } // namespace ast

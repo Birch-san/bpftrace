@@ -554,8 +554,11 @@ void perf_event_printer(void *cb_cookie, void *data, [[maybe_unused]] int size)
   {
     auto map_lookup_elem_err = static_cast<AsyncEvent::MapLookupElemErr *>(data);
     auto error_id = map_lookup_elem_err->error_id;
+    auto return_value = map_lookup_elem_err->return_value;
     auto &info = bpftrace->map_lookup_elem_error_info_[error_id];
-    bpftrace->warning(std::cerr, info.loc, "failed map_lookup_elem");
+    std::stringstream msg;
+    msg << "map_lookup_elem returned: " << return_value;
+    bpftrace->warning(std::cerr, info.loc, msg.str());
     return;
   }
   else if ( printf_id >= asyncactionint(AsyncAction::syscall) &&

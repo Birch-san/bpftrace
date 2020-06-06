@@ -7,7 +7,6 @@
 
 #include <llvm/Config/llvm-config.h>
 #include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/InlineAsm.h>
 
 #if LLVM_VERSION_MAJOR >= 5 && LLVM_VERSION_MAJOR < 7
 #define CREATE_MEMCPY(dst, src, size, algn)                                    \
@@ -90,11 +89,10 @@ public:
   void        CreateOverrideReturn(Value *ctx, Value *rc);
   void        CreateHelperError(Value *ctx, Value *return_value, libbpf::bpf_func_id func_id, const location& loc);
   void        CreateHelperErrorCond(Value *ctx, Value *return_value, libbpf::bpf_func_id func_id, const location& loc, bool compare_zero=false);
-  void        CreateMapLookupElemError(Value *ctx, const location& loc);
+  void        CreateMapLookupElemError(Value *ctx, Value *return_value, const location& loc);
   StructType *GetStructType(std::string name, const std::vector<llvm::Type *> & elements, bool packed = false);
   AllocaInst *CreateUSym(llvm::Value *val);
   Value      *CreatKFuncArg(Value *ctx, SizedType& type, std::string& name);
-  CallInst   *CreateExit();
   int helper_error_id_ = 0;
   int map_lookup_elem_error_id_ = 0;
 
