@@ -553,6 +553,7 @@ void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unu
     auto helpererror = static_cast<AsyncEvent::HelperError *>(data);
     auto error_id = helpererror->error_id;
     auto return_value = helpererror->return_value;
+    auto is_fatal = helpererror->is_fatal;
     auto &info = bpftrace->helper_error_info_[error_id];
     std::stringstream msg;
     msg << "Failed to " << libbpf::bpf_func_name[info.func_id] << ": ";
@@ -560,7 +561,15 @@ void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unu
       msg << strerror(-return_value) << " (" << return_value << ")";
     else
       msg << return_value;
-    bpftrace->warning(std::cerr, info.loc, msg.str());
+    if (is_fatal)
+    {
+      bpftrace->error(std::cerr, info.loc, msg.str());
+      bpftrace->request_finalize();
+    }
+    else
+    {
+      bpftrace->warning(std::cerr, info.loc, msg.str());
+    }
     return;
   }
   else if ( printf_id >= asyncactionint(AsyncAction::syscall) &&
