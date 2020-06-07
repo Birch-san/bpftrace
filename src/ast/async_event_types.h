@@ -1,6 +1,7 @@
 #pragma once
 
 #include "irbuilderbpf.h"
+#include <cstddef>
 #include <cstdint>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Type.h>
@@ -113,6 +114,7 @@ struct HelperError
   uint64_t action_id;
   uint64_t error_id;
   int32_t return_value;
+  int8_t is_fatal;
 
   std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b)
   {
@@ -120,6 +122,7 @@ struct HelperError
       b.getInt64Ty(), // asyncid
       b.getInt64Ty(), // error_id
       b.getInt32Ty(), // return value
+      b.getInt8Ty(),  // is_fatal
     };
   }
 } __attribute__((packed));

@@ -534,6 +534,7 @@ void SemanticAnalyser::visit(Call &call)
     call.type = CreateNone();
   }
   else if (call.func == "str") {
+    needs_str_map_ = true;
     if (check_varargs(call, 1, 2)) {
       check_arg(call, Type::integer, 0);
       call.type = CreateString(bpftrace_.strlen_);
@@ -761,6 +762,7 @@ void SemanticAnalyser::visit(Call &call)
   }
   else if (call.func == "printf" || call.func == "system" || call.func == "cat")
   {
+    needs_fmtstr_map_ = true;
     check_assignment(call, false, false, false);
     if (check_varargs(call, 1, 128))
     {
@@ -770,6 +772,7 @@ void SemanticAnalyser::visit(Call &call)
         auto &fmt_arg = *call.vargs->at(0);
         String &fmt = static_cast<String&>(fmt_arg);
         std::vector<Field> args;
+        size_t args_size = 0;
         for (auto iter = call.vargs->begin() + 1; iter != call.vargs->end();
              iter++)
         {
@@ -787,7 +790,9 @@ void SemanticAnalyser::visit(Call &call)
               .mask = 0,
             },
           });
+          args_size += ty.size;
         }
+        max_fmtstr_args_size_ = std::max(max_fmtstr_args_size_, args_size);
         std::string msg = verify_format_string(fmt.str, args);
         if (msg != "")
         {
@@ -2341,6 +2346,50 @@ int SemanticAnalyser::create_maps(bool debug)
     bpftrace_.perf_event_map_ = std::make_unique<bpftrace::Map>(BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     failed_maps += is_invalid_map(bpftrace_.perf_event_map_->mapfd_);
   }
+
+  size_t max_zero_buffer_size_ = 0;
+
+  if (needs_fmtstr_map_)
+  {
+    std::string map_ident = "fmtstr";
+
+    size_t printf_struct_size = sizeof(size_t) + max_fmtstr_args_size_;
+    SizedType type = CreateString(printf_struct_size);
+    MapKey key;
+    if (debug)
+      bpftrace_.fmtstr_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                                  type,
+                                                                  key);
+    else
+    {
+      bpftrace_.fmtstr_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1);
+    }
+    failed_maps += is_invalid_map(bpftrace_.fmtstr_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, printf_struct_size);
+  }
+
+  if (needs_str_map_)
+  {
+    std::string map_ident = "str";
+
+    SizedType type = CreateString(bpftrace_.strlen_);
+    MapKey key;
+    if (debug)
+      bpftrace_.str_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                               type,
+                                                               key);
+    else
+    {
+      bpftrace_.str_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1);
+    }
+    failed_maps += is_invalid_map(bpftrace_.str_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
+  }
+
+  bpftrace_.zero_buffer_ = std::make_unique<std::vector<std::byte>>(
+      max_zero_buffer_size_, std::byte(0));
 
   if (failed_maps > 0)
   {
