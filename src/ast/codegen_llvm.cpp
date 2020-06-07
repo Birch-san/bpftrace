@@ -477,6 +477,10 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "str")
   {
+    CallInst *str_map = b_.CreateGetStrMap(ctx_, call.loc);
+
+    auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
     if (call.vargs->size() > 1) {
@@ -495,14 +499,15 @@ void CodegenLLVM::visit(Call &call)
     } else {
       b_.CreateStore(b_.getInt64(bpftrace_.strlen_), strlen);
     }
-    AllocaInst *buf = b_.CreateAllocaBPF(bpftrace_.strlen_, "str");
-    b_.CREATE_MEMSET(buf, b_.getInt8(0), bpftrace_.strlen_, 1);
     call.vargs->front()->accept(*this);
-    b_.CreateProbeReadStr(ctx_, buf, b_.CreateLoad(strlen), expr_, call.loc);
+    // zero it out first
+    b_.CreateProbeRead(ctx_, str_map, bpftrace_.strlen_,
+                      ConstantExpr::getCast(Instruction::IntToPtr, zeroed_area_ptr, b_.getInt8PtrTy()), call.loc);
+    b_.CreateProbeReadStr(ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
     b_.CreateLifetimeEnd(strlen);
 
-    expr_ = buf;
-    expr_deleter_ = [this,buf]() { b_.CreateLifetimeEnd(buf); };
+    expr_ = str_map;
+    expr_points_to_map_value_ = true;
   }
   else if (call.func == "buf")
   {
@@ -2300,8 +2305,14 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
     arg.offset = struct_layout->getElementOffset(i+1); // +1 for the id field
   }
 
-  AllocaInst *fmt_args = b_.CreateAllocaBPF(fmt_struct, call_name + "_args");
-  b_.CREATE_MEMSET(fmt_args, b_.getInt8(0), struct_size, 1);
+  Value *fmt_args = b_.CreateGetFmtStrMap(ctx_, fmt_struct, call.loc);
+
+  auto fmt_struct_ptr_ty = PointerType::get(fmt_struct, 0);
+
+  auto zeroed_area_ptr = b_.getInt64(reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+  b_.CreateProbeRead(ctx_, fmt_args, struct_size,
+                     ConstantExpr::getCast(Instruction::IntToPtr, zeroed_area_ptr, fmt_struct_ptr_ty), call.loc);
 
   Value *id_offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(0)});
   b_.CreateStore(b_.getInt64(id + asyncactionint(async_action)), id_offset);
@@ -2309,11 +2320,16 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   {
     Expression &arg = *call.vargs->at(i);
     expr_deleter_ = nullptr;
+    expr_points_to_map_value_ = false;
     arg.accept(*this);
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
     if (arg.type.IsAggregate())
     {
-      b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      if (expr_points_to_map_value_) {
+        b_.CreateProbeRead(ctx_, offset, arg.type.size, expr_, call.loc);
+      } else {
+        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      }
       if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
         b_.CreateLifetimeEnd(expr_);
     }
