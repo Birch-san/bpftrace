@@ -41,6 +41,8 @@ namespace ast {
 
 using namespace llvm;
 
+using MapKeyPtrVariant = std::variant<AllocaInst *, CallInst *>;
+
 class IRBuilderBPF : public IRBuilder<>
 {
 public:
@@ -100,7 +102,7 @@ private:
   BPFtrace &bpftrace_;
 
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
-  CallInst   *createMapLookup(int mapfd, std::variant<AllocaInst *, CallInst *> key);
+  CallInst   *createMapLookup(int mapfd, MapKeyPtrVariant key);
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
 
   std::map<std::string, StructType *> structs_;

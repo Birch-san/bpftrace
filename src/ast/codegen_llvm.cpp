@@ -1969,11 +1969,10 @@ int CodegenLLVM::getNextIndexForProbe(const std::string &probe_name) {
 std::string CodegenLLVM::getSectionNameForProbe(const std::string &probe_name, int index) {
   return "s_" + probe_name + "_" + std::to_string(index);
 }
-
-std::tuple<std::variant<AllocaInst *, CallInst *>, std::function<void(const std::variant<AllocaInst *, CallInst *> &key)>> CodegenLLVM::getMapKey(Map &map)
+std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map &map)
 {
-  std::variant<AllocaInst *, CallInst *> key;
-  std::function<void(std::variant<AllocaInst *, CallInst *> key)> key_deleter = [this](const std::variant<AllocaInst *, CallInst *> &key){
+  MapKeyPtrVariant key;
+  MapKeyPtrVariantDeleter key_deleter = [this](const MapKeyPtrVariant &key){
     if (auto alt = std::get_if<AllocaInst *>(&key)) {
       b_.CreateLifetimeEnd(*alt);
     }
