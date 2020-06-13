@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <ostream>
+#include <tuple>
+#include <variant>
 
 #include "ast.h"
 #include "bpftrace.h"
@@ -57,7 +59,7 @@ public:
   void visit(AttachPoint &ap) override;
   void visit(Probe &probe) override;
   void visit(Program &program) override;
-  AllocaInst *getMapKey(Map &map);
+  std::tuple<std::variant<AllocaInst *, CallInst *>, std::function<void(const std::variant<AllocaInst *, CallInst *> &)>> getMapKey(Map &map);
   AllocaInst *getHistMapKey(Map &map, Value *log2);
   int         getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);

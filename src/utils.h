@@ -178,4 +178,7 @@ T read_data(const void *src)
   return v;
 }
 
+template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
+template<class... Ts> overload(Ts...) -> overload<Ts...>;
+
 } // namespace bpftrace
