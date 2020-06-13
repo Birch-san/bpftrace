@@ -213,7 +213,7 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
-CallInst *IRBuilderBPF::createMapLookup(int mapfd, std::variant<AllocaInst *, CallInst *> key)
+CallInst *IRBuilderBPF::createMapLookup(int mapfd, MapKeyPtrVariant key)
 {
   Value *map_ptr = CreateBpfPseudoCall(mapfd);
   // void *map_lookup_elem(struct bpf_map * map, void * key)
@@ -300,7 +300,7 @@ CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          Map &map,
-                                         std::variant<AllocaInst *, CallInst *> key,
+                                         MapKeyPtrVariant key,
                                          const location &loc)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
@@ -310,7 +310,7 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          int mapfd,
-                                         std::variant<AllocaInst *, CallInst *> key,
+                                         MapKeyPtrVariant key,
                                          SizedType &type,
                                          const location &loc)
 {
@@ -360,7 +360,7 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
                                        Map &map,
-                                       std::variant<AllocaInst *, CallInst *> key,
+                                       MapKeyPtrVariant key,
                                        Value *val,
                                        const location &loc)
 {
@@ -404,7 +404,7 @@ void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
 
 void IRBuilderBPF::CreateMapDeleteElem(Value *ctx,
                                        Map &map,
-                                       std::variant<AllocaInst *, CallInst *> key,
+                                       MapKeyPtrVariant key,
                                        const location &loc)
 {
   Value *keyDowncast = std::visit([](auto&& alt) {

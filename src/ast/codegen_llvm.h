@@ -21,6 +21,7 @@ namespace ast {
 using namespace llvm;
 
 using CallArgs = std::vector<std::tuple<std::string, std::vector<Field>>>;
+using MapKeyPtrVariantDeleter = std::function<void(const MapKeyPtrVariant &key)>;
 
 class CodegenLLVM : public Visitor {
 public:
@@ -59,7 +60,7 @@ public:
   void visit(AttachPoint &ap) override;
   void visit(Probe &probe) override;
   void visit(Program &program) override;
-  std::tuple<std::variant<AllocaInst *, CallInst *>, std::function<void(const std::variant<AllocaInst *, CallInst *> &)>> getMapKey(Map &map);
+  std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> getMapKey(Map &map);
   AllocaInst *getHistMapKey(Map &map, Value *log2);
   int         getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);
