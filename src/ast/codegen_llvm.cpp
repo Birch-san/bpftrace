@@ -378,15 +378,15 @@ void CodegenLLVM::visit(Call &call)
     // respectively, and the calculation is made when printing.
     Map &map = *call.map;
 
-    AllocaInst *count_key = getHistMapKey(map, b_.getInt64(0));
+    auto [count_key, count_key_deleter] = getHistMapKey(map, b_.getInt64(0));
     Value *count_old = b_.CreateMapLookupElem(ctx_, map, count_key, call.loc);
     AllocaInst *count_new = b_.CreateAllocaBPF(map.type, map.ident + "_num");
     b_.CreateStore(b_.CreateAdd(count_old, b_.getInt64(1)), count_new);
     b_.CreateMapUpdateElem(ctx_, map, count_key, count_new, call.loc);
-    b_.CreateLifetimeEnd(count_key);
+    count_key_deleter(count_key);
     b_.CreateLifetimeEnd(count_new);
 
-    AllocaInst *total_key = getHistMapKey(map, b_.getInt64(1));
+    auto [total_key, total_key_deleter] = getHistMapKey(map, b_.getInt64(1));
     Value *total_old = b_.CreateMapLookupElem(ctx_, map, total_key, call.loc);
     AllocaInst *total_new = b_.CreateAllocaBPF(map.type, map.ident + "_val");
     call.vargs->front()->accept(*this);
@@ -396,7 +396,7 @@ void CodegenLLVM::visit(Call &call)
                              call.vargs->front()->type.IsSigned());
     b_.CreateStore(b_.CreateAdd(expr_, total_old), total_new);
     b_.CreateMapUpdateElem(ctx_, map, total_key, total_new, call.loc);
-    b_.CreateLifetimeEnd(total_key);
+    total_key_deleter(total_key);
     b_.CreateLifetimeEnd(total_new);
 
     expr_ = nullptr;
@@ -411,7 +411,7 @@ void CodegenLLVM::visit(Call &call)
                              call.vargs->front()->type.IsSigned());
     Function *log2_func = module_->getFunction("log2");
     Value *log2 = b_.CreateCall(log2_func, expr_, "log2");
-    AllocaInst *key = getHistMapKey(map, log2);
+    auto [key, key_deleter] = getHistMapKey(map, log2);
 
     Value *oldval = b_.CreateMapLookupElem(ctx_, map, key, call.loc);
     AllocaInst *newval = b_.CreateAllocaBPF(map.type, map.ident + "_val");
@@ -419,7 +419,7 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateMapUpdateElem(ctx_, map, key, newval, call.loc);
 
     // oldval can only be an integer so won't be in memory and doesn't need lifetime end
-    b_.CreateLifetimeEnd(key);
+    key_deleter(key);
     b_.CreateLifetimeEnd(newval);
     expr_ = nullptr;
   }
@@ -454,7 +454,7 @@ void CodegenLLVM::visit(Call &call)
 
     Value *linear = b_.CreateCall(linear_func, {value, min, max, step} , "linear");
 
-    AllocaInst *key = getHistMapKey(map, linear);
+    auto [key, key_deleter] = getHistMapKey(map, linear);
 
     Value *oldval = b_.CreateMapLookupElem(ctx_, map, key, call.loc);
     AllocaInst *newval = b_.CreateAllocaBPF(map.type, map.ident + "_val");
@@ -462,7 +462,7 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateMapUpdateElem(ctx_, map, key, newval, call.loc);
 
     // oldval can only be an integer so won't be in memory and doesn't need lifetime end
-    b_.CreateLifetimeEnd(key);
+    key_deleter(key);
     b_.CreateLifetimeEnd(newval);
     expr_ = nullptr;
   }
@@ -2044,9 +2044,14 @@ std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map
   return std::make_tuple(key, key_deleter);
 }
 
-AllocaInst *CodegenLLVM::getHistMapKey(Map &map, Value *log2)
+std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getHistMapKey(Map &map, Value *log2)
 {
-  AllocaInst *key;
+  MapKeyPtrVariant key;
+  MapKeyPtrVariantDeleter key_deleter = [this](const MapKeyPtrVariant &key){
+    if (auto alt = std::get_if<AllocaInst *>(&key)) {
+      b_.CreateLifetimeEnd(*alt);
+    }
+  };
   if (map.vargs) {
     size_t size = 8; // Extra space for the bucket value
     for (Expression *expr : *map.vargs)
@@ -2058,7 +2063,7 @@ AllocaInst *CodegenLLVM::getHistMapKey(Map &map, Value *log2)
     int offset = 0;
     for (Expression *expr : *map.vargs) {
       expr->accept(*this);
-      Value *offset_val = b_.CreateGEP(key, {b_.getInt64(0), b_.getInt64(offset)});
+      Value *offset_val = b_.CreateGEP(std::get<AllocaInst *>(key), {b_.getInt64(0), b_.getInt64(offset)});
       if (shouldBeOnStackAlready(expr->type))
       {
         b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
@@ -2069,15 +2074,15 @@ AllocaInst *CodegenLLVM::getHistMapKey(Map &map, Value *log2)
         b_.CreateStore(expr_, offset_val);
       offset += expr->type.size;
     }
-    Value *offset_val = b_.CreateGEP(key, {b_.getInt64(0), b_.getInt64(offset)});
+    Value *offset_val = b_.CreateGEP(std::get<AllocaInst *>(key), {b_.getInt64(0), b_.getInt64(offset)});
     b_.CreateStore(log2, offset_val);
   }
   else
   {
     key = b_.CreateAllocaBPF(CreateUInt64(), map.ident + "_key");
-    b_.CreateStore(log2, key);
+    b_.CreateStore(log2, std::get<AllocaInst *>(key));
   }
-  return key;
+  return std::make_tuple(key, key_deleter);
 }
 
 Value *CodegenLLVM::createLogicalAnd(Binop &binop)

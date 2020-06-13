@@ -61,7 +61,7 @@ public:
   void visit(Probe &probe) override;
   void visit(Program &program) override;
   std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> getMapKey(Map &map);
-  AllocaInst *getHistMapKey(Map &map, Value *log2);
+  std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> getHistMapKey(Map &map, Value *log2);
   int         getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);
   Value      *createLogicalAnd(Binop &binop);
