@@ -35,7 +35,6 @@ enum class Type
   ksym,
   usym,
   cast,
-  join,
   probe,
   username,
   inet,
@@ -215,10 +214,6 @@ public:
   bool IsCastTy(void) const
   {
     return type == Type::cast;
-  };
-  bool IsJoinTy(void) const
-  {
-    return type == Type::join;
   };
   bool IsProbeTy(void) const
   {
