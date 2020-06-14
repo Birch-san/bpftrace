@@ -19,7 +19,14 @@ int Map::create_map(enum bpf_map_type map_type, const char *name, int key_size, 
 #endif
 }
 
-Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int min, int max, int step, int max_entries)
+Map::Map(const std::string &name,
+         const SizedType &type,
+         const MapKey &key,
+         int min,
+         int max,
+         int step,
+         int max_entries,
+         bool is_scratch_map)
 {
   name_ = name;
   type_ = type;
@@ -35,7 +42,7 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
   if (key_size == 0)
     key_size = 8;
 
-  if (type.IsCountTy() && !key.args_.size())
+  if (is_scratch_map || (type.IsCountTy() && !key.args_.size()))
   {
     map_type_ = BPF_MAP_TYPE_PERCPU_ARRAY;
     max_entries = 1;
@@ -47,12 +54,6 @@ Map::Map(const std::string &name, const SizedType &type, const MapKey &key, int 
            (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)))
   {
       map_type_ = BPF_MAP_TYPE_PERCPU_HASH;
-  }
-  else if (type.IsJoinTy() || type.IsStringTy())
-  {
-    map_type_ = BPF_MAP_TYPE_PERCPU_ARRAY;
-    max_entries = 1;
-    key_size = 4;
   }
   else
     map_type_ = BPF_MAP_TYPE_HASH;
