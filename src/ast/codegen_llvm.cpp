@@ -1969,12 +1969,12 @@ int CodegenLLVM::getNextIndexForProbe(const std::string &probe_name) {
 std::string CodegenLLVM::getSectionNameForProbe(const std::string &probe_name, int index) {
   return "s_" + probe_name + "_" + std::to_string(index);
 }
-std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map &map)
+std::tuple<Value*, std::function<void(Value*)>> CodegenLLVM::getMapKey(Map &map)
 {
-  MapKeyPtrVariant key;
-  MapKeyPtrVariantDeleter key_deleter = [this](const MapKeyPtrVariant &key){
-    if (auto alt = std::get_if<AllocaInst *>(&key)) {
-      b_.CreateLifetimeEnd(*alt);
+  Value* key;
+  auto key_deleter = [this](Value *key){
+    if (auto *alloca = dyn_cast<AllocaInst>(key)) {
+      b_.CreateLifetimeEnd(alloca);
     }
   };
   if (map.vargs) {
@@ -1985,18 +1985,14 @@ std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map
       expr->accept(*this);
       if (shouldBeOnStackAlready(expr->type))
       {
-        if (expr_points_to_map_value_) {
-          key = dyn_cast<CallInst>(expr_);
-        } else {
-          key = dyn_cast<AllocaInst>(expr_);
-        }
+        key = expr_;
       }
       else
       {
         key = b_.CreateAllocaBPF(expr->type.size, map.ident + "_key");
         b_.CreateStore(
             b_.CreateIntCast(expr_, b_.getInt64Ty(), expr->type.IsSigned()),
-            b_.CreatePointerCast(std::get<AllocaInst *>(key), expr_->getType()->getPointerTo()));
+            b_.CreatePointerCast(key, expr_->getType()->getPointerTo()));
       }
     }
     else
@@ -2015,7 +2011,7 @@ std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map
       {
         expr->accept(*this);
         Value *offset_val = b_.CreateGEP(
-            std::get<AllocaInst *>(key), { b_.getInt64(0), b_.getInt64(offset) });
+            key, { b_.getInt64(0), b_.getInt64(offset) });
 
         if (shouldBeOnStackAlready(expr->type))
         {
@@ -2039,7 +2035,7 @@ std::tuple<MapKeyPtrVariant, MapKeyPtrVariantDeleter> CodegenLLVM::getMapKey(Map
   {
     // No map key (e.g., @ = 1;). Use 0 as a key.
     key = b_.CreateAllocaBPF(CreateUInt64(), map.ident + "_key");
-    b_.CreateStore(b_.getInt64(0), std::get<AllocaInst *>(key));
+    b_.CreateStore(b_.getInt64(0), key);
   }
   return std::make_tuple(key, key_deleter);
 }

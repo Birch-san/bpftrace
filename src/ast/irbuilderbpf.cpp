@@ -213,34 +213,21 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
-CallInst *IRBuilderBPF::createMapLookup(int mapfd, MapKeyPtrVariant key)
+CallInst *IRBuilderBPF::createMapLookup(int mapfd, Value *key)
 {
   Value *map_ptr = CreateBpfPseudoCall(mapfd);
   // void *map_lookup_elem(struct bpf_map * map, void * key)
   // Return: Map value or NULL
 
-  Value *keyDowncast = std::visit([](auto&& alt) {
-    return static_cast<Value *>(alt);
-  }, key);
-
-  llvm::Type *keyType = std::visit(overload{
-    [](AllocaInst *alt) {
-      assert(alt->getType()->isPointerTy());
-      return static_cast<llvm::Type *>(alt->getType());
-    },
-    [](CallInst* alt) {
-      return alt->getType();
-    },
-  }, key);
-
+  assert(key->getType()->isPointerTy());
   FunctionType *lookup_func_type = FunctionType::get(
-      getInt8PtrTy(), { map_ptr->getType(), keyType }, false);
+      getInt8PtrTy(), { map_ptr->getType(), key->getType() }, false);
   PointerType *lookup_func_ptr_type = PointerType::get(lookup_func_type, 0);
   Constant *lookup_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_map_lookup_elem),
       lookup_func_ptr_type);
-  return CreateCall(lookup_func, { map_ptr, keyDowncast }, "lookup_elem");
+  return CreateCall(lookup_func, { map_ptr, key }, "lookup_elem");
 }
 
 CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
@@ -300,7 +287,7 @@ CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          Map &map,
-                                         MapKeyPtrVariant key,
+                                         Value *key,
                                          const location &loc)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
@@ -310,7 +297,7 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          int mapfd,
-                                         MapKeyPtrVariant key,
+                                         Value *key,
                                          SizedType &type,
                                          const location &loc)
 {
@@ -360,27 +347,14 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
                                        Map &map,
-                                       MapKeyPtrVariant key,
+                                       Value *key,
                                        Value *val,
                                        const location &loc)
 {
   Value *map_ptr = CreateBpfPseudoCall(map);
 
-  Value *keyDowncast = std::visit([](auto&& alt) {
-    return static_cast<Value *>(alt);
-  }, key);
-
-  llvm::Type *keyType = std::visit(overload{
-    [](AllocaInst *alt) {
-      assert(alt->getType()->isPointerTy());
-      return static_cast<llvm::Type *>(alt->getType());
-    },
-    [](CallInst* alt) {
-      return alt->getType();
-    },
-  }, key);
-
   assert(ctx && ctx->getType() == getInt8PtrTy());
+  assert(key->getType()->isPointerTy());
   assert(val->getType()->isPointerTy());
 
   Value *flags = getInt64(0);
@@ -389,7 +363,7 @@ void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
   // flags) Return: 0 on success or negative error
   FunctionType *update_func_type = FunctionType::get(
       getInt64Ty(),
-      { map_ptr->getType(), keyType, val->getType(), getInt64Ty() },
+      { map_ptr->getType(), key->getType(), val->getType(), getInt64Ty() },
       false);
   PointerType *update_func_ptr_type = PointerType::get(update_func_type, 0);
   Constant *update_func = ConstantExpr::getCast(
@@ -397,43 +371,30 @@ void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
       getInt64(libbpf::BPF_FUNC_map_update_elem),
       update_func_ptr_type);
   CallInst *call = CreateCall(update_func,
-                              { map_ptr, keyDowncast, val, flags },
+                              { map_ptr, key, val, flags },
                               "update_elem");
   CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_update_elem, loc);
 }
 
 void IRBuilderBPF::CreateMapDeleteElem(Value *ctx,
                                        Map &map,
-                                       MapKeyPtrVariant key,
+                                       Value *key,
                                        const location &loc)
 {
-  Value *keyDowncast = std::visit([](auto&& alt) {
-    return static_cast<Value *>(alt);
-  }, key);
-
-  llvm::Type *keyType = std::visit(overload{
-    [](AllocaInst *alt) {
-      assert(alt->getType()->isPointerTy());
-      return static_cast<llvm::Type *>(alt->getType());
-    },
-    [](CallInst* alt) {
-      return alt->getType();
-    },
-  }, key);
-
   assert(ctx && ctx->getType() == getInt8PtrTy());
+  assert(key->getType()->isPointerTy());
   Value *map_ptr = CreateBpfPseudoCall(map);
 
   // int map_delete_elem(&map, &key)
   // Return: 0 on success or negative error
   FunctionType *delete_func_type = FunctionType::get(
-      getInt64Ty(), { map_ptr->getType(), keyType }, false);
+      getInt64Ty(), { map_ptr->getType(), key->getType() }, false);
   PointerType *delete_func_ptr_type = PointerType::get(delete_func_type, 0);
   Constant *delete_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_map_delete_elem),
       delete_func_ptr_type);
-  CallInst *call = CreateCall(delete_func, { map_ptr, keyDowncast }, "delete_elem");
+  CallInst *call = CreateCall(delete_func, { map_ptr, key }, "delete_elem");
   CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_delete_elem, loc);
 }
 

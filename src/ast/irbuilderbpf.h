@@ -3,7 +3,6 @@
 #include "ast.h"
 #include "bpftrace.h"
 #include "types.h"
-#include <variant>
 #include <bcc/bcc_usdt.h>
 
 #include <llvm/Config/llvm-config.h>
@@ -41,8 +40,6 @@ namespace ast {
 
 using namespace llvm;
 
-using MapKeyPtrVariant = std::variant<AllocaInst *, CallInst *>;
-
 class IRBuilderBPF : public IRBuilder<>
 {
 public:
@@ -60,10 +57,10 @@ public:
   llvm::ConstantInt *GetIntSameSize(uint64_t C, llvm::Type *ty);
   CallInst   *CreateBpfPseudoCall(int mapfd);
   CallInst   *CreateBpfPseudoCall(Map &map);
-  Value      *CreateMapLookupElem(Value* ctx, Map &map, MapKeyPtrVariant key, const location& loc);
-  Value      *CreateMapLookupElem(Value* ctx, int mapfd, MapKeyPtrVariant key, SizedType &type, const location& loc);
-  void        CreateMapUpdateElem(Value* ctx, Map &map, MapKeyPtrVariant key, Value *val, const location& loc);
-  void        CreateMapDeleteElem(Value* ctx, Map &map, MapKeyPtrVariant key, const location& loc);
+  Value      *CreateMapLookupElem(Value* ctx, Map &map, Value *key, const location& loc);
+  Value      *CreateMapLookupElem(Value* ctx, int mapfd, Value *key, SizedType &type, const location& loc);
+  void        CreateMapUpdateElem(Value* ctx, Map &map, Value *key, Value *val, const location& loc);
+  void        CreateMapDeleteElem(Value* ctx, Map &map, Value *key, const location& loc);
   void        CreateProbeRead(Value *ctx, Value *dst, size_t size, Value *src, const location& loc);
   void        CreateProbeRead(Value *ctx, Value *dst, llvm::Value *size, Value *src, const location& loc);
   CallInst   *CreateProbeReadStr(Value* ctx, AllocaInst *dst, llvm::Value *size, Value *src, const location& loc);
@@ -102,7 +99,7 @@ private:
   BPFtrace &bpftrace_;
 
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
-  CallInst   *createMapLookup(int mapfd, MapKeyPtrVariant key);
+  CallInst   *createMapLookup(int mapfd, Value *key);
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
 
   std::map<std::string, StructType *> structs_;
