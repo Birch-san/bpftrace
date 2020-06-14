@@ -213,7 +213,7 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
-CallInst *IRBuilderBPF::createMapLookup(int mapfd, AllocaInst *key)
+CallInst *IRBuilderBPF::createMapLookup(int mapfd, Value *key)
 {
   Value *map_ptr = CreateBpfPseudoCall(mapfd);
   // void *map_lookup_elem(struct bpf_map * map, void * key)
@@ -287,7 +287,7 @@ CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          Map &map,
-                                         AllocaInst *key,
+                                         Value *key,
                                          const location &loc)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
@@ -297,7 +297,7 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
                                          int mapfd,
-                                         AllocaInst *key,
+                                         Value *key,
                                          SizedType &type,
                                          const location &loc)
 {
@@ -347,7 +347,7 @@ Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
 
 void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
                                        Map &map,
-                                       AllocaInst *key,
+                                       Value *key,
                                        Value *val,
                                        const location &loc)
 {
@@ -378,7 +378,7 @@ void IRBuilderBPF::CreateMapUpdateElem(Value *ctx,
 
 void IRBuilderBPF::CreateMapDeleteElem(Value *ctx,
                                        Map &map,
-                                       AllocaInst *key,
+                                       Value *key,
                                        const location &loc)
 {
   assert(ctx && ctx->getType() == getInt8PtrTy());
