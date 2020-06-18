@@ -240,12 +240,14 @@ CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
   return call;
 }
 
-CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
+                                            int map_fd,
+                                            const location &loc)
 {
   AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
   CreateStore(getInt32(0), key);
 
-  CallInst *call = createMapLookup(bpftrace_.str_map_->mapfd_, key);
+  CallInst *call = createMapLookup(map_fd, key);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
@@ -253,6 +255,21 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
                         /*compare_zero=*/true,
                         /*require_success=*/true);
   return call;
+}
+
+CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
+{
+  return CreateGetScratchMap(ctx, bpftrace_.str_map_->mapfd_, loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx, const location &loc)
+{
+  return CreateGetScratchMap(ctx, bpftrace_.key_map_->mapfd_, loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
+{
+  return CreateGetScratchMap(ctx, bpftrace_.val_map_->mapfd_, loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
