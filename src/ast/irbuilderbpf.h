@@ -82,6 +82,8 @@ public:
   CallInst   *CreateGetStackId(Value *ctx, bool ustack, StackType stack_type, const location& loc);
   CallInst   *CreateGetJoinMap(Value *ctx, const location& loc);
   CallInst   *CreateGetStrMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetKeyMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetValMap(Value *ctx, const location& loc);
   CallInst   *CreateGetFmtStrMap(Value *ctx, StructType *printf_struct, const location& loc);
   void        CreateGetCurrentComm(Value *ctx, AllocaInst *buf, size_t size, const location& loc);
   void        CreatePerfEventOutput(Value *ctx, Value *data, size_t size);
@@ -101,6 +103,7 @@ private:
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
   CallInst   *createMapLookup(int mapfd, Value *key);
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const location& loc);
 
   std::map<std::string, StructType *> structs_;
   // clang-format on

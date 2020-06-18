@@ -89,6 +89,10 @@ private:
   Value *expr_ = nullptr;
   std::function<void()> expr_deleter_; // intentionally empty
   bool expr_points_to_map_value_ = false;
+  // if you want to consume the contents of a scratch buffer, you should grab a
+  // copy or ensure that you won't accept() another expression that writes over
+  // the same scratch buffer
+  bool expr_points_to_scratch_buffer_ = false;
   Value *ctx_;
   AttachPoint *current_attach_point_ = nullptr;
   BPFtrace &bpftrace_;
