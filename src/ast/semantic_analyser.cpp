@@ -1120,6 +1120,10 @@ void SemanticAnalyser::visit(Map &map)
               " array instead (eg `@map[$1, $2] = ...)`.",
               map.loc);
       }
+      else if (expr->type.IsStringTy())
+      {
+        needs_key_map_ = true;
+      }
 
       if (is_final_pass()) {
         if (expr->type.IsNoneTy())
@@ -1764,6 +1768,7 @@ void SemanticAnalyser::visit(AssignMapStatement &assignment)
   }
   else if (type == Type::string)
   {
+    needs_val_map_ = true;
     auto map_size = map_val_[map_ident].size;
     auto expr_size = assignment.expr->type.size;
     if (map_size != expr_size)
@@ -2386,6 +2391,44 @@ int SemanticAnalyser::create_maps(bool debug)
           map_ident, type, key, 1, true);
     }
     failed_maps += is_invalid_map(bpftrace_.str_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
+  }
+
+  if (needs_key_map_)
+  {
+    std::string map_ident = "key";
+
+    SizedType type = CreateString(bpftrace_.strlen_);
+    MapKey key;
+    if (debug)
+      bpftrace_.key_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                               type,
+                                                               key);
+    else
+    {
+      bpftrace_.key_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.key_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
+  }
+
+  if (needs_val_map_)
+  {
+    std::string map_ident = "val";
+
+    SizedType type = CreateString(bpftrace_.strlen_);
+    MapKey key;
+    if (debug)
+      bpftrace_.val_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                               type,
+                                                               key);
+    else
+    {
+      bpftrace_.val_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.val_map_->mapfd_);
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
 

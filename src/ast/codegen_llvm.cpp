@@ -542,6 +542,7 @@ void CodegenLLVM::visit(Call &call)
 
     expr_ = str_map;
     expr_points_to_map_value_ = true;
+    expr_points_to_scratch_buffer_ = true;
   }
   else if (call.func == "buf")
   {
@@ -1578,43 +1579,69 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
 {
   Map &map = *assignment.map;
 
+  expr_points_to_scratch_buffer_ = false;
   assignment.expr->accept(*this);
 
   if (!expr_) // Some functions do the assignments themselves
     return;
 
-  Value *val, *expr;
-  expr = expr_;
-  auto [key, key_deleter] = getMapKey(map);
+  Value *val;
   if (shouldBeOnStackAlready(assignment.expr->type))
   {
-    val = expr;
+    if (expr_points_to_scratch_buffer_)
+    {
+      // we need to take a copy of the contents
+      CallInst *val_map = b_.CreateGetValMap(ctx_, assignment.expr->loc);
+
+      auto zeroed_area_ptr = b_.getInt64(
+          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+      // zero it out first
+      b_.CreateProbeRead(ctx_,
+                         val_map,
+                         bpftrace_.strlen_,
+                         ConstantExpr::getCast(Instruction::IntToPtr,
+                                               zeroed_area_ptr,
+                                               b_.getInt8PtrTy()),
+                         assignment.expr->loc);
+      b_.CreateProbeReadStr(ctx_,
+                            val_map,
+                            assignment.expr->type.size,
+                            expr_,
+                            assignment.expr->loc);
+      val = val_map;
+    }
+    else
+    {
+      val = expr_;
+    }
   }
   else if (map.type.IsCastTy())
   {
     if (assignment.expr->type.is_internal)
     {
-      val = expr;
+      val = expr_;
     }
     else if (assignment.expr->type.is_pointer)
     {
-      // expr currently contains a pointer to the struct
+      // expr_ currently contains a pointer to the struct
       // and that's what we are saving
       AllocaInst *dst = b_.CreateAllocaBPF(map.type, map.ident + "_ptr");
-      b_.CreateStore(expr, dst);
+      b_.CreateStore(expr_, dst);
       val = dst;
     }
     else
     {
-      // expr currently contains a pointer to the struct
+      // expr_ currently contains a pointer to the struct
       // We now want to read the entire struct in so we can save it
       AllocaInst *dst = b_.CreateAllocaBPF(map.type, map.ident + "_val");
-      b_.CreateProbeRead(ctx_, dst, map.type.size, expr, assignment.loc);
+      b_.CreateProbeRead(ctx_, dst, map.type.size, expr_, assignment.loc);
       val = dst;
     }
   }
   else
   {
+    Value *expr = expr_;
     if (map.type.IsIntTy())
     {
       // Integers are always stored as 64-bit in map values
@@ -1623,9 +1650,10 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
     val = b_.CreateAllocaBPF(map.type, map.ident + "_val");
     b_.CreateStore(expr, val);
   }
+  auto [key, key_deleter] = getMapKey(map);
   b_.CreateMapUpdateElem(ctx_, map, key, val, assignment.loc);
   key_deleter(key);
-  if (!assignment.expr->is_variable)
+  if (!assignment.expr->is_variable && dyn_cast<AllocaInst>(val))
     b_.CreateLifetimeEnd(val);
 }
 
@@ -2013,20 +2041,44 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
 {
   Value *key;
   auto key_deleter = [this](Value *key) {
-    if (auto *alloca = dyn_cast<AllocaInst>(key))
+    if (dyn_cast<AllocaInst>(key))
     {
-      b_.CreateLifetimeEnd(alloca);
+      b_.CreateLifetimeEnd(key);
     }
   };
   if (map.vargs) {
     // A single value as a map key (e.g., @[comm] = 0;)
     if (map.vargs->size() == 1)
     {
+      expr_points_to_scratch_buffer_ = false;
       Expression *expr = map.vargs->at(0);
       expr->accept(*this);
       if (shouldBeOnStackAlready(expr->type))
       {
-        key = expr_;
+        if (expr_points_to_scratch_buffer_)
+        {
+          // we need to take a copy of the contents
+          CallInst *key_map = b_.CreateGetKeyMap(ctx_, expr->loc);
+
+          auto zeroed_area_ptr = b_.getInt64(
+              reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+          // zero it out first
+          b_.CreateProbeRead(ctx_,
+                             key_map,
+                             bpftrace_.strlen_,
+                             ConstantExpr::getCast(Instruction::IntToPtr,
+                                                   zeroed_area_ptr,
+                                                   b_.getInt8PtrTy()),
+                             expr->loc);
+          b_.CreateProbeReadStr(
+              ctx_, key_map, expr->type.size, expr_, expr->loc);
+          key = key_map;
+        }
+        else
+        {
+          key = expr_;
+        }
       }
       else
       {
