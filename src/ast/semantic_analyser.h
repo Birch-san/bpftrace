@@ -118,6 +118,7 @@ private:
   bool has_end_probe_ = false;
   bool has_child_ = false;
   size_t max_fmtstr_args_size_ = 0;
+  size_t max_key_size_ = 0;
 };
 
 } // namespace ast
