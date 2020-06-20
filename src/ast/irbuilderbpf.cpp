@@ -706,16 +706,8 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
      }
   */
 
-#ifndef NDEBUG
-  PointerType *val1p = cast<PointerType>(val1->getType());
-  PointerType *val2p = cast<PointerType>(val2->getType());
-
-  assert(val1p->getElementType()->isArrayTy() &&
-         val1p->getElementType()->getArrayElementType() == getInt8Ty());
-
-  assert(val2p->getElementType()->isArrayTy() &&
-         val2p->getElementType()->getArrayElementType() == getInt8Ty());
-#endif
+  assert(val1->getType() == getInt8PtrTy());
+  assert(val2->getType() == getInt8PtrTy());
 
   Function *parent = GetInsertBlock()->getParent();
   AllocaInst *store = CreateAllocaBPF(getInt8Ty(), "strcmp.result");
@@ -741,11 +733,11 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
                                                      "strcmp.loop_null_cmp",
                                                      parent);
 
-    auto *ptr1 = CreateGEP(val1, { getInt32(0), getInt32(i) });
+    auto *ptr1 = CreateGEP(val1, getInt32(i));
     CreateProbeRead(ctx, val_l, 1, ptr1, loc);
     Value *l = CreateLoad(getInt8Ty(), val_l);
 
-    auto *ptr2 = CreateGEP(val2, { getInt32(0), getInt32(i) });
+    auto *ptr2 = CreateGEP(val2, getInt32(i));
     CreateProbeRead(ctx, val_r, 1, ptr2, loc);
     Value *r = CreateLoad(getInt8Ty(), val_r);
 
