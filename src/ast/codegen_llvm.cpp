@@ -2096,21 +2096,39 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
       {
         size += expr->type.size;
       }
-      key = b_.CreateAllocaBPF(size, map.ident + "_key");
+      key = b_.CreateGetKeyMap(ctx_, map.loc);
+      auto zeroed_area_ptr = b_.getInt64(
+          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
-      int offset = 0;
+      // zero it out first
+      b_.CreateProbeRead(ctx_,
+                         key,
+                         size,
+                         ConstantExpr::getCast(Instruction::IntToPtr,
+                                               zeroed_area_ptr,
+                                               b_.getInt8PtrTy()),
+                         map.loc);
+
+      size_t offset = 0;
       // Construct a map key in the stack
       for (Expression *expr : *map.vargs)
       {
         expr->accept(*this);
-        Value *offset_val = b_.CreateGEP(
-            key, { b_.getInt64(0), b_.getInt64(offset) });
+        Value *offset_val = b_.CreateGEP(key, b_.getInt32(offset));
 
         if (shouldBeOnStackAlready(expr->type))
         {
-          b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
-          if (!expr->is_variable && dyn_cast<AllocaInst>(expr_))
-            b_.CreateLifetimeEnd(expr_);
+          if (expr_points_to_map_value_)
+          {
+            b_.CreateProbeRead(
+                ctx_, offset_val, expr->type.size, expr_, expr->loc);
+          }
+          else
+          {
+            b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
+            if (!expr->is_variable && dyn_cast<AllocaInst>(expr_))
+              b_.CreateLifetimeEnd(expr_);
+          }
         }
         else
         {
@@ -2470,9 +2488,9 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
       else
       {
         b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+        if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
+          b_.CreateLifetimeEnd(expr_);
       }
-      if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
-        b_.CreateLifetimeEnd(expr_);
     }
     else
       b_.CreateStore(expr_, offset);
