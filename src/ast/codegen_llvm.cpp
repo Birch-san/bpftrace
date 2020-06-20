@@ -520,7 +520,6 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = str_map;
-    expr_points_to_map_value_ = true;
     expr_points_to_scratch_buffer_ = true;
   }
   else if (call.func == "buf")
@@ -2073,17 +2072,9 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
 
         if (shouldBeOnStackAlready(expr->type))
         {
-          if (expr_points_to_map_value_)
-          {
-            b_.CreateProbeRead(
-                ctx_, offset_val, expr->type.size, expr_, expr->loc);
-          }
-          else
-          {
-            b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
-            if (!expr->is_variable && dyn_cast<AllocaInst>(expr_))
-              b_.CreateLifetimeEnd(expr_);
-          }
+          b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
+          if (!expr->is_variable && dyn_cast<AllocaInst>(expr_))
+            b_.CreateLifetimeEnd(expr_);
         }
         else
         {
@@ -2414,21 +2405,13 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   {
     Expression &arg = *call.vargs->at(i);
     expr_deleter_ = nullptr;
-    expr_points_to_map_value_ = false;
     arg.accept(*this);
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
     if (arg.type.IsAggregate())
     {
-      if (expr_points_to_map_value_)
-      {
-        b_.CreateProbeRead(ctx_, offset, arg.type.size, expr_, call.loc);
-      }
-      else
-      {
-        b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
-        if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
-          b_.CreateLifetimeEnd(expr_);
-      }
+      b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
+        b_.CreateLifetimeEnd(expr_);
     }
     else
       b_.CreateStore(expr_, offset);
