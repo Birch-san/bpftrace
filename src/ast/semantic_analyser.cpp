@@ -96,12 +96,13 @@ void SemanticAnalyser::visit(PositionalParameter &param)
 
 void SemanticAnalyser::visit(String &string)
 {
-  if (!is_compile_time_func(func_) && string.str.size() > STRING_SIZE - 1)
+  if (!is_compile_time_func(func_) && string.str.size() > bpftrace_.strlen_ - 1)
   {
-    ERR("String is too long (over " << STRING_SIZE << " bytes): " << string.str,
+    ERR("String is too long (over " << bpftrace_.strlen_
+                                    << " bytes): " << string.str,
         string.loc);
   }
-  string.type = CreateString(STRING_SIZE);
+  string.type = CreateString(bpftrace_.strlen_);
 }
 
 void SemanticAnalyser::visit(StackMode &mode)
@@ -1433,7 +1434,7 @@ void SemanticAnalyser::visit(Ternary &ternary)
       ERR("Invalid condition in ternary: " << cond, ternary.loc);
   }
   if (lhs == Type::string)
-    ternary.type = CreateString(STRING_SIZE);
+    ternary.type = CreateString(bpftrace_.strlen_);
   else if (lhs == Type::integer)
     ternary.type = CreateInteger(64, ternary.left->type.IsSigned());
   else {
