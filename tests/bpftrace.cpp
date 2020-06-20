@@ -733,7 +733,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_int(std::ve
 std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_str(std::vector<std::string> key, int val)
 {
   std::pair<std::vector<uint8_t>, std::vector<uint8_t>> pair;
-  pair.first  = std::vector<uint8_t>(STRING_SIZE*key.size());
+  pair.first = std::vector<uint8_t>(strlen_ * key.size());
   pair.second = std::vector<uint8_t>(sizeof(uint64_t));
 
   uint8_t *key_data = pair.first.data();
@@ -741,7 +741,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_str(std::ve
 
   for (size_t i=0; i<key.size(); i++)
   {
-    strncpy((char*)key_data + STRING_SIZE*i, key.at(i).c_str(), STRING_SIZE);
+    strncpy((char *)key_data + strlen_ * i, key.at(i).c_str(), strlen_);
   }
   uint64_t v = val;
   std::memcpy(val_data, &v, sizeof(v));
@@ -752,7 +752,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_str(std::ve
 std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_int_str(int myint, std::string mystr, int val)
 {
   std::pair<std::vector<uint8_t>, std::vector<uint8_t>> pair;
-  pair.first  = std::vector<uint8_t>(sizeof(uint64_t) + STRING_SIZE);
+  pair.first = std::vector<uint8_t>(sizeof(uint64_t) + strlen_);
   pair.second = std::vector<uint8_t>(sizeof(uint64_t));
 
   uint8_t *key_data = pair.first.data();
@@ -760,7 +760,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> key_value_pair_int_str(int
 
   uint64_t k = myint, v = val;
   std::memcpy(key_data, &k, sizeof(k));
-  strncpy((char*)key_data + sizeof(uint64_t), mystr.c_str(), STRING_SIZE);
+  strncpy((char *)key_data + sizeof(uint64_t), mystr.c_str(), strlen_);
   std::memcpy(val_data, &v, sizeof(v));
 
   return pair;
@@ -827,7 +827,7 @@ TEST(bpftrace, sort_by_key_str)
   StrictMock<MockBPFtrace> bpftrace;
 
   std::vector<SizedType> key_args = {
-    CreateString(STRING_SIZE),
+    CreateString(strlen_),
   };
   std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> values_by_key =
   {
@@ -854,9 +854,9 @@ TEST(bpftrace, sort_by_key_str_str)
   StrictMock<MockBPFtrace> bpftrace;
 
   std::vector<SizedType> key_args = {
-    CreateString(STRING_SIZE),
-    CreateString(STRING_SIZE),
-    CreateString(STRING_SIZE),
+    CreateString(strlen_),
+    CreateString(strlen_),
+    CreateString(strlen_),
   };
   std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> values_by_key =
   {
@@ -888,7 +888,7 @@ TEST(bpftrace, sort_by_key_int_str)
 
   std::vector<SizedType> key_args = {
     CreateUInt64(),
-    CreateString(STRING_SIZE),
+    CreateString(strlen_),
   };
   std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> values_by_key =
   {
