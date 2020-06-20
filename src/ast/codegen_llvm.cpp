@@ -1560,11 +1560,7 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
                                                zeroed_area_ptr,
                                                b_.getInt8PtrTy()),
                          assignment.expr->loc);
-      b_.CreateProbeReadStr(ctx_,
-                            val_map,
-                            assignment.expr->type.size,
-                            expr_,
-                            assignment.expr->loc);
+      b_.CREATE_MEMCPY(val_map, expr_, assignment.expr->type.size, 1);
       val = val_map;
     }
     else
@@ -2025,8 +2021,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
                                                    zeroed_area_ptr,
                                                    b_.getInt8PtrTy()),
                              expr->loc);
-          b_.CreateProbeReadStr(
-              ctx_, key_map, expr->type.size, expr_, expr->loc);
+          b_.CREATE_MEMCPY(key_map, expr_, expr->type.size, 1);
           key = key_map;
         }
         else
@@ -2045,30 +2040,52 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
     else
     {
       // Two or more values as a map key (e.g, @[comm, pid] = 1;)
+      bool needs_map = false;
       size_t size = 0;
       for (Expression *expr : *map.vargs)
       {
         size += expr->type.size;
+        if (expr->type.IsStringTy())
+        {
+          needs_map = true;
+        }
       }
-      key = b_.CreateGetKeyMap(ctx_, map.loc);
-      auto zeroed_area_ptr = b_.getInt64(
-          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+      if (needs_map)
+      {
+        key = b_.CreateGetKeyMap(ctx_, map.loc);
+        auto zeroed_area_ptr = b_.getInt64(
+            reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
-      // zero it out first
-      b_.CreateProbeRead(ctx_,
-                         key,
-                         size,
-                         ConstantExpr::getCast(Instruction::IntToPtr,
-                                               zeroed_area_ptr,
-                                               b_.getInt8PtrTy()),
-                         map.loc);
+        // zero it out first
+        b_.CreateProbeRead(ctx_,
+                           key,
+                           size,
+                           ConstantExpr::getCast(Instruction::IntToPtr,
+                                                 zeroed_area_ptr,
+                                                 b_.getInt8PtrTy()),
+                           map.loc);
+      }
+      else
+      {
+        key = b_.CreateAllocaBPF(size, map.ident + "_key");
+        b_.CREATE_MEMSET(key, b_.getInt8(0), size, 1);
+      }
 
       size_t offset = 0;
       // Construct a map key in the stack
       for (Expression *expr : *map.vargs)
       {
         expr->accept(*this);
-        Value *offset_val = b_.CreateGEP(key, b_.getInt32(offset));
+        Value *offset_val;
+        if (needs_map)
+        {
+          offset_val = b_.CreateGEP(key, b_.getInt32(offset));
+        }
+        else
+        {
+          offset_val = b_.CreateGEP(key,
+                                    { b_.getInt64(0), b_.getInt64(offset) });
+        }
 
         if (shouldBeOnStackAlready(expr->type))
         {
