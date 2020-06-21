@@ -1258,8 +1258,9 @@ std::string BPFtrace::map_value_to_str(const SizedType &stype,
   else if (stype.IsUsernameTy())
     return resolve_uid(read_data<uint64_t>(value.data()));
   else if (stype.IsBufferTy())
-    return resolve_buf(reinterpret_cast<char *>(value.data() + 1),
-                       *reinterpret_cast<uint8_t *>(value.data()));
+    return resolve_buf(reinterpret_cast<char *>(value.data() +
+                                                sizeof(uint64_t)),
+                       *reinterpret_cast<uint64_t *>(value.data()));
   else if (stype.IsStringTy())
   {
     auto p = reinterpret_cast<const char *>(value.data());
