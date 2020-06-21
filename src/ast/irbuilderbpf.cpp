@@ -242,12 +242,8 @@ CallInst *IRBuilderBPF::createMapLookup(int mapfd,
 
 CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
 {
-  AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  CreateStore(getInt32(0), key);
-
-  CallInst *call = createMapLookup(bpftrace_.join_map_->mapfd_, key);
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, true);
-  return call;
+  return CreateGetScratchMap(
+      ctx, bpftrace_.join_map_->mapfd_, "lookup_join_map", loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
