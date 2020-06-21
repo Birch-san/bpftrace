@@ -363,7 +363,7 @@ SizedType CreateJoin(size_t argnum, size_t argsize)
 
 SizedType CreateBuffer(size_t size)
 {
-  return SizedType(Type::buffer, size);
+  return SizedType(Type::buffer, size + 8);
 }
 
 SizedType CreateTimestamp()

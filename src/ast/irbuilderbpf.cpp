@@ -214,7 +214,17 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
-CallInst *IRBuilderBPF::createMapLookup(int mapfd, Value *key)
+CallInst *IRBuilderBPF::createMapLookup(int mapfd,
+                                        Value *key,
+                                        const std::string &name)
+{
+  return createMapLookup(mapfd, key, getInt8PtrTy(), name);
+}
+
+CallInst *IRBuilderBPF::createMapLookup(int mapfd,
+                                        Value *key,
+                                        PointerType *ptr_ty,
+                                        const std::string &name)
 {
   Value *map_ptr = CreateBpfPseudoCall(mapfd);
   // void *map_lookup_elem(struct bpf_map * map, void * key)
@@ -222,33 +232,39 @@ CallInst *IRBuilderBPF::createMapLookup(int mapfd, Value *key)
 
   assert(key->getType()->isPointerTy());
   FunctionType *lookup_func_type = FunctionType::get(
-      getInt8PtrTy(), { map_ptr->getType(), key->getType() }, false);
+      ptr_ty, { map_ptr->getType(), key->getType() }, false);
   PointerType *lookup_func_ptr_type = PointerType::get(lookup_func_type, 0);
   Constant *lookup_func = ConstantExpr::getCast(
       Instruction::IntToPtr,
       getInt64(libbpf::BPF_FUNC_map_lookup_elem),
       lookup_func_ptr_type);
-  return CreateCall(lookup_func, { map_ptr, key }, "lookup_elem");
+  return CreateCall(lookup_func, { map_ptr, key }, name);
 }
 
 CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
 {
-  AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  CreateStore(getInt32(0), key);
-
-  CallInst *call = createMapLookup(bpftrace_.join_map_->mapfd_, key);
-  CreateHelperErrorCond(ctx, call, libbpf::BPF_FUNC_map_lookup_elem, loc, true);
-  return call;
+  return CreateGetScratchMap(
+      ctx, bpftrace_.join_map_->mapfd_, "lookup_join_map", loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
+                                            const std::string &name,
+                                            const location &loc)
+{
+  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
+                                            int map_fd,
+                                            const std::string &name,
+                                            PointerType *ptr_ty,
                                             const location &loc)
 {
   AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
   CreateStore(getInt32(0), key);
 
-  CallInst *call = createMapLookup(map_fd, key);
+  CallInst *call = createMapLookup(map_fd, key, ptr_ty, name);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
@@ -260,47 +276,54 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
 
 CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
 {
-  return CreateGetScratchMap(ctx, bpftrace_.str_map_->mapfd_, loc);
+  return CreateGetScratchMap(
+      ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx, const location &loc)
 {
-  return CreateGetScratchMap(ctx, bpftrace_.key_map_->mapfd_, loc);
+  return CreateGetScratchMap(
+      ctx, bpftrace_.key_map_->mapfd_, "lookup_key_map", loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
 {
-  return CreateGetScratchMap(ctx, bpftrace_.val_map_->mapfd_, loc);
+  return CreateGetScratchMap(
+      ctx, bpftrace_.val_map_->mapfd_, "lookup_val_map", loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetTernaryMap(Value *ctx, const location &loc)
+{
+  return CreateGetScratchMap(
+      ctx, bpftrace_.ternary_map_->mapfd_, "lookup_ternary_map", loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetStrnCmpMap(Value *ctx, const location &loc)
+{
+  return CreateGetScratchMap(
+      ctx, bpftrace_.strncmp_map_->mapfd_, "lookup_strncmp_map", loc);
+}
+
+CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
+                                        PointerType *buf_struct_ptr_ty,
+                                        const location &loc)
+{
+  return CreateGetScratchMap(ctx,
+                             bpftrace_.buf_map_->mapfd_,
+                             "lookup_buf_map",
+                             buf_struct_ptr_ty,
+                             loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
-                                           StructType *printf_struct,
+                                           PointerType *printf_struct_ptr_ty,
                                            const location &loc)
 {
-  Value *map_ptr = CreateBpfPseudoCall(bpftrace_.fmtstr_map_->mapfd_);
-  AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  Value *keyv = getInt32(0);
-  CreateStore(keyv, key);
-
-  FunctionType *lookup_func_type = FunctionType::get(
-      PointerType::get(printf_struct, 0),
-      { getInt8PtrTy(), getInt8PtrTy() },
-      false);
-  PointerType *lookup_func_ptr_type = PointerType::get(lookup_func_type, 0);
-  Constant *lookup_func = ConstantExpr::getCast(Instruction::IntToPtr,
-                                                getInt64(
-                                                    BPF_FUNC_map_lookup_elem),
-                                                lookup_func_ptr_type);
-  CallInst *call = CreateCall(lookup_func,
-                              { map_ptr, key },
-                              "lookup_fmtstr_map");
-  CreateHelperErrorCond(ctx,
-                        call,
-                        libbpf::BPF_FUNC_map_lookup_elem,
-                        loc,
-                        /*compare_zero=*/true,
-                        /*require_success=*/true);
-  return call;
+  return CreateGetScratchMap(ctx,
+                             bpftrace_.fmtstr_map_->mapfd_,
+                             "lookup_fmtstr_map",
+                             printf_struct_ptr_ty,
+                             loc);
 }
 
 Value *IRBuilderBPF::CreateMapLookupElem(Value *ctx,
@@ -707,16 +730,8 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
      }
   */
 
-#ifndef NDEBUG
-  PointerType *val1p = cast<PointerType>(val1->getType());
-  PointerType *val2p = cast<PointerType>(val2->getType());
-
-  assert(val1p->getElementType()->isArrayTy() &&
-         val1p->getElementType()->getArrayElementType() == getInt8Ty());
-
-  assert(val2p->getElementType()->isArrayTy() &&
-         val2p->getElementType()->getArrayElementType() == getInt8Ty());
-#endif
+  assert(val1->getType() == getInt8PtrTy());
+  assert(val2->getType() == getInt8PtrTy());
 
   Function *parent = GetInsertBlock()->getParent();
   AllocaInst *store = CreateAllocaBPF(getInt8Ty(), "strcmp.result");
@@ -742,11 +757,11 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
                                                      "strcmp.loop_null_cmp",
                                                      parent);
 
-    auto *ptr1 = CreateGEP(val1, { getInt32(0), getInt32(i) });
+    auto *ptr1 = CreateGEP(val1, getInt32(i));
     CreateProbeRead(ctx, val_l, 1, ptr1, loc);
     Value *l = CreateLoad(getInt8Ty(), val_l);
 
-    auto *ptr2 = CreateGEP(val2, { getInt32(0), getInt32(i) });
+    auto *ptr2 = CreateGEP(val2, getInt32(i));
     CreateProbeRead(ctx, val_r, 1, ptr2, loc);
     Value *r = CreateLoad(getInt8Ty(), val_r);
 

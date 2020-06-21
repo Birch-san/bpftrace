@@ -165,9 +165,12 @@ public:
   std::unique_ptr<IMap> str_map_;
   std::unique_ptr<IMap> key_map_;
   std::unique_ptr<IMap> val_map_;
-  std::unique_ptr<std::vector<std::byte>> zero_buffer_;
+  std::unique_ptr<IMap> ternary_map_;
+  std::unique_ptr<IMap> strncmp_map_;
+  std::unique_ptr<IMap> buf_map_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;
+  std::unique_ptr<std::vector<std::byte>> zero_buffer_;
   std::vector<std::string> probe_ids_;
   unsigned int join_argnum_;
   unsigned int join_argsize_;
