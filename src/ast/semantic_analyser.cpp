@@ -979,7 +979,8 @@ void SemanticAnalyser::visit(Call &call)
       }
     }
     call.type = CreateUInt64();
-    needs_strncmp_map_ = true;
+    if (!call.vargs->at(0)->is_literal && !call.vargs->at(1)->is_literal)
+      needs_strncmp_map_ = true;
   }
   else if (call.func == "override")
   {
