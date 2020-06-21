@@ -553,6 +553,7 @@ void SemanticAnalyser::visit(Call &call)
   }
   else if (call.func == "buf")
   {
+    needs_buf_map_ = true;
     if (!check_varargs(call, 1, 2))
       return;
 
@@ -594,8 +595,9 @@ void SemanticAnalyser::visit(Call &call)
       buffer_size = max_buffer_size;
     }
 
-    buffer_size++; // extra byte is used to embed the length of the buffer
     call.type = CreateBuffer(buffer_size);
+
+    max_buf_size_ = std::max(max_buf_size_, call.type.size);
 
     if (auto *param = dynamic_cast<PositionalParameter *>(call.vargs->at(0)))
     {
@@ -1002,6 +1004,8 @@ void SemanticAnalyser::visit(Call &call)
       }
     }
     call.type = CreateUInt64();
+    if (!call.vargs->at(0)->is_literal && !call.vargs->at(1)->is_literal)
+      needs_strncmp_map_ = true;
   }
   else if (call.func == "override")
   {
@@ -1434,7 +1438,10 @@ void SemanticAnalyser::visit(Ternary &ternary)
       ERR("Invalid condition in ternary: " << cond, ternary.loc);
   }
   if (lhs == Type::string)
+  {
     ternary.type = CreateString(bpftrace_.strlen_);
+    needs_ternary_map_ = true;
+  }
   else if (lhs == Type::integer)
     ternary.type = CreateInteger(64, ternary.left->type.IsSigned());
   else {
@@ -2428,6 +2435,64 @@ int SemanticAnalyser::create_maps(bool debug)
     }
     failed_maps += is_invalid_map(bpftrace_.val_map_->mapfd_);
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
+  }
+
+  if (needs_ternary_map_)
+  {
+    std::string map_ident = "ternary";
+
+    SizedType type = CreateString(bpftrace_.strlen_);
+    MapKey key;
+    if (debug)
+      bpftrace_.ternary_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                                   type,
+                                                                   key);
+    else
+    {
+      bpftrace_.ternary_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.ternary_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
+  }
+
+  if (needs_strncmp_map_)
+  {
+    std::string map_ident = "strncmp";
+
+    SizedType type = CreateString(bpftrace_.strlen_ * 2);
+    MapKey key;
+    if (debug)
+      bpftrace_.strncmp_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                                   type,
+                                                                   key);
+    else
+    {
+      bpftrace_.strncmp_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.strncmp_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_,
+                                     bpftrace_.strlen_ * 2);
+  }
+
+  if (needs_buf_map_)
+  {
+    std::string map_ident = "buf";
+
+    SizedType type = CreateString(max_buf_size_);
+    MapKey key;
+    if (debug)
+      bpftrace_.buf_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                               type,
+                                                               key);
+    else
+    {
+      bpftrace_.buf_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.buf_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_buf_size_);
   }
 
   bpftrace_.zero_buffer_ = std::make_unique<std::vector<std::byte>>(

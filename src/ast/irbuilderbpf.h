@@ -84,7 +84,10 @@ public:
   CallInst   *CreateGetStrMap(Value *ctx, const location& loc);
   CallInst   *CreateGetKeyMap(Value *ctx, const location& loc);
   CallInst   *CreateGetValMap(Value *ctx, const location& loc);
-  CallInst   *CreateGetFmtStrMap(Value *ctx, StructType *printf_struct, const location& loc);
+  CallInst   *CreateGetTernaryMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetStrnCmpMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetBufMap(Value *ctx, PointerType *buf_struct_ptr_ty, const location& loc);
+  CallInst   *CreateGetFmtStrMap(Value *ctx, PointerType *printf_struct_ptr_ty, const location& loc);
   void        CreateGetCurrentComm(Value *ctx, AllocaInst *buf, size_t size, const location& loc);
   void        CreatePerfEventOutput(Value *ctx, Value *data, size_t size);
   void        CreateSignal(Value *ctx, Value *sig, const location &loc);
@@ -101,9 +104,11 @@ private:
   BPFtrace &bpftrace_;
 
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
-  CallInst   *createMapLookup(int mapfd, Value *key);
+  CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem");
+  CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem");
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const location& loc);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc);
 
   std::map<std::string, StructType *> structs_;
   // clang-format on
