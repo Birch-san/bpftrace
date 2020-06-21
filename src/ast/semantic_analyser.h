@@ -115,12 +115,14 @@ private:
   bool needs_val_map_ = false;
   bool needs_ternary_map_ = false;
   bool needs_strncmp_map_ = false;
+  bool needs_buf_map_ = false;
   bool needs_elapsed_map_ = false;
   bool has_begin_probe_ = false;
   bool has_end_probe_ = false;
   bool has_child_ = false;
   size_t max_fmtstr_args_size_ = 0;
   size_t max_key_size_ = 0;
+  size_t max_buf_size_ = 0;
 };
 
 } // namespace ast

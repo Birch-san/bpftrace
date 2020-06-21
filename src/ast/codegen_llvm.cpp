@@ -541,7 +541,7 @@ void CodegenLLVM::visit(Call &call)
       auto &arg = *call.vargs->at(0);
       fixed_buffer_length = arg.type.GetNumElements() *
                             arg.type.GetElementTy()->size;
-      length = b_.getInt8(fixed_buffer_length);
+      length = b_.getInt64(fixed_buffer_length);
     }
 
     auto elements = AsyncEvent::Buf().asLLVMType(b_, fixed_buffer_length);
@@ -550,7 +550,22 @@ void CodegenLLVM::visit(Call &call)
     StructType *buf_struct = b_.GetStructType(dynamic_sized_struct_name,
                                               elements,
                                               false);
-    AllocaInst *buf = b_.CreateAllocaBPF(buf_struct, "buffer");
+    int struct_size = layout_.getTypeAllocSize(buf_struct);
+
+    auto buf_struct_ptr_ty = PointerType::get(buf_struct, 0);
+    CallInst *buf = b_.CreateGetBufMap(ctx_, buf_struct_ptr_ty, call.loc);
+
+    auto zeroed_area_ptr = b_.getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+    // zero it out first
+    b_.CreateProbeRead(ctx_,
+                       buf,
+                       struct_size,
+                       ConstantExpr::getCast(Instruction::IntToPtr,
+                                             zeroed_area_ptr,
+                                             buf_struct_ptr_ty),
+                       call.loc);
 
     b_.CreateStore(length,
                    b_.CreateGEP(buf, { b_.getInt32(0), b_.getInt32(0) }));
@@ -562,14 +577,10 @@ void CodegenLLVM::visit(Call &call)
                      1);
 
     call.vargs->front()->accept(*this);
-    b_.CreateProbeRead(ctx_,
-                       static_cast<AllocaInst *>(buf_data_offset),
-                       length,
-                       expr_,
-                       call.loc);
+    b_.CreateProbeRead(ctx_, buf_data_offset, length, expr_, call.loc);
 
     expr_ = buf;
-    expr_deleter_ = [this, buf]() { b_.CreateLifetimeEnd(buf); };
+    expr_points_to_scratch_buffer_ = true;
   }
   else if (call.func == "kaddr")
   {
@@ -1577,7 +1588,7 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
       // zero it out first
       b_.CreateProbeRead(ctx_,
                          val_map,
-                         bpftrace_.strlen_,
+                         assignment.expr->type.size,
                          ConstantExpr::getCast(Instruction::IntToPtr,
                                                zeroed_area_ptr,
                                                b_.getInt8PtrTy()),
@@ -2036,7 +2047,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
           // zero it out first
           b_.CreateProbeRead(ctx_,
                              key_map,
-                             bpftrace_.strlen_,
+                             expr->type.size,
                              ConstantExpr::getCast(Instruction::IntToPtr,
                                                    zeroed_area_ptr,
                                                    b_.getInt8PtrTy()),
@@ -2414,9 +2425,8 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
     arg.offset = struct_layout->getElementOffset(i+1); // +1 for the id field
   }
 
-  Value *fmt_args = b_.CreateGetFmtStrMap(ctx_, fmt_struct, call.loc);
-
   auto fmt_struct_ptr_ty = PointerType::get(fmt_struct, 0);
+  Value *fmt_args = b_.CreateGetFmtStrMap(ctx_, fmt_struct_ptr_ty, call.loc);
 
   auto zeroed_area_ptr = b_.getInt64(
       reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
