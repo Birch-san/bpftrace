@@ -1202,13 +1202,6 @@ void SemanticAnalyser::visit(Binop &binop)
   bool lsign = binop.left->type.IsSigned();
   bool rsign = binop.right->type.IsSigned();
 
-  max_binop_size_ = std::max(max_binop_size_,
-                             binop.left->type.size + binop.right->type.size);
-  if (binop.left->type.IsStringTy() || binop.right->type.IsStringTy())
-  {
-    needs_binop_map_ = true;
-  }
-
   std::stringstream buf;
   if (is_final_pass()) {
     if ((lhs != rhs) &&
@@ -1406,13 +1399,6 @@ void SemanticAnalyser::visit(Ternary &ternary)
   Type &cond = ternary.cond->type.type;
   Type &lhs = ternary.left->type.type;
   Type &rhs = ternary.right->type.type;
-  max_ternary_size_ = std::max(max_ternary_size_,
-                               ternary.left->type.size +
-                                   ternary.right->type.size);
-  if (ternary.left->type.IsStringTy() || ternary.right->type.IsStringTy())
-  {
-    needs_ternary_map_ = true;
-  }
   if (is_final_pass()) {
     if (lhs != rhs) {
       ERR("Ternary operator must return the same type: "
@@ -1424,7 +1410,10 @@ void SemanticAnalyser::visit(Ternary &ternary)
       ERR("Invalid condition in ternary: " << cond, ternary.loc);
   }
   if (lhs == Type::string)
+  {
     ternary.type = CreateString(bpftrace_.strlen_);
+    needs_ternary_map_ = true;
+  }
   else if (lhs == Type::integer)
     ternary.type = CreateInteger(64, ternary.left->type.IsSigned());
   else {
@@ -2420,30 +2409,11 @@ int SemanticAnalyser::create_maps(bool debug)
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
 
-  if (needs_binop_map_)
-  {
-    std::string map_ident = "binop";
-
-    SizedType type = CreateString(max_binop_size_);
-    MapKey key;
-    if (debug)
-      bpftrace_.binop_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
-                                                                 type,
-                                                                 key);
-    else
-    {
-      bpftrace_.binop_map_ = std::make_unique<bpftrace::Map>(
-          map_ident, type, key, 1, true);
-    }
-    failed_maps += is_invalid_map(bpftrace_.binop_map_->mapfd_);
-    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_binop_size_);
-  }
-
   if (needs_ternary_map_)
   {
     std::string map_ident = "ternary";
 
-    SizedType type = CreateString(max_ternary_size_);
+    SizedType type = CreateString(bpftrace_.strlen_);
     MapKey key;
     if (debug)
       bpftrace_.ternary_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
@@ -2455,7 +2425,7 @@ int SemanticAnalyser::create_maps(bool debug)
           map_ident, type, key, 1, true);
     }
     failed_maps += is_invalid_map(bpftrace_.ternary_map_->mapfd_);
-    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_ternary_size_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
 
   if (needs_strncmp_map_)

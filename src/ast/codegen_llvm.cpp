@@ -1269,7 +1269,6 @@ void CodegenLLVM::visit(Ternary &ternary)
 
   // ordering of all the following statements is important
   Value *result = b_.CreateAllocaBPF(ternary.type, "result");
-  AllocaInst *buf = b_.CreateAllocaBPF(ternary.type, "buf");
   Value *cond;
   ternary.cond->accept(*this);
   cond = expr_;
@@ -1280,6 +1279,7 @@ void CodegenLLVM::visit(Ternary &ternary)
 
   if (ternary.type.IsIntTy())
   {
+    AllocaInst *buf = b_.CreateAllocaBPF(ternary.type, "buf");
     // fetch selected integer via CreateStore
     b_.SetInsertPoint(left_block);
     ternary.left->accept(*this);
@@ -1302,6 +1302,19 @@ void CodegenLLVM::visit(Ternary &ternary)
   }
   else
   {
+    CallInst *buf = b_.CreateGetTernaryMap(ctx_, ternary.loc);
+    auto zeroed_area_ptr = b_.getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+    // zero it out first
+    b_.CreateProbeRead(ctx_,
+                       buf,
+                       bpftrace_.strlen_,
+                       ConstantExpr::getCast(Instruction::IntToPtr,
+                                             zeroed_area_ptr,
+                                             b_.getInt8PtrTy()),
+                       ternary.loc);
+
     // copy selected string via CreateMemCpy
     b_.SetInsertPoint(left_block);
     ternary.left->accept(*this);
@@ -1319,6 +1332,7 @@ void CodegenLLVM::visit(Ternary &ternary)
 
     b_.SetInsertPoint(done);
     expr_ = buf;
+    expr_points_to_scratch_buffer_ = true;
   }
 }
 

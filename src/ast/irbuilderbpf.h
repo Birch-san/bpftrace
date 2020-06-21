@@ -84,6 +84,8 @@ public:
   CallInst   *CreateGetStrMap(Value *ctx, const location& loc);
   CallInst   *CreateGetKeyMap(Value *ctx, const location& loc);
   CallInst   *CreateGetValMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetTernaryMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetStrnCmpMap(Value *ctx, const location& loc);
   CallInst   *CreateGetFmtStrMap(Value *ctx, StructType *printf_struct, const location& loc);
   void        CreateGetCurrentComm(Value *ctx, AllocaInst *buf, size_t size, const location& loc);
   void        CreatePerfEventOutput(Value *ctx, Value *data, size_t size);

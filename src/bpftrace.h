@@ -162,7 +162,6 @@ public:
   std::unique_ptr<IMap> str_map_;
   std::unique_ptr<IMap> key_map_;
   std::unique_ptr<IMap> val_map_;
-  std::unique_ptr<IMap> binop_map_;
   std::unique_ptr<IMap> ternary_map_;
   std::unique_ptr<IMap> strncmp_map_;
   std::unique_ptr<IMap> elapsed_map_;
