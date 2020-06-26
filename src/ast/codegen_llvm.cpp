@@ -932,34 +932,10 @@ void CodegenLLVM::visit(Call &call)
       if (!right_arg->is_variable && dyn_cast<AllocaInst>(right_string))
         b_.CreateLifetimeEnd(right_string);
     } else {
-      CallInst *strncmp_map = b_.CreateGetStrnCmpMap(ctx_, call.loc);
-
-      auto zeroed_area_ptr = b_.getInt64(
-          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-      // zero it out first
-      b_.CreateProbeRead(ctx_,
-                         strncmp_map,
-                         bpftrace_.strlen_ * 2,
-                         ConstantExpr::getCast(Instruction::IntToPtr,
-                                               zeroed_area_ptr,
-                                               b_.getInt8PtrTy()),
-                         call.loc);
-
       right_arg->accept(*this);
-      Value *right_string = strncmp_map;
-      // this can just be a MEMCPY
-      // OR! instead of copying content into a buffer, and setting expr_ to
-      // point to buffer... could we just create a GEP, and assign that to
-      // expr_?
-      b_.CreateProbeReadStr(
-          ctx_, right_string, bpftrace_.strlen_, expr_, call.loc);
-
+      Value *right_string = expr_;
       left_arg->accept(*this);
-      Value *left_string = b_.CreateGEP(strncmp_map,
-                                        b_.getInt32(bpftrace_.strlen_));
-      b_.CreateProbeReadStr(
-          ctx_, left_string, bpftrace_.strlen_, expr_, call.loc);
+      Value *left_string = expr_;
 
       expr_ = b_.CreateStrncmp(
           ctx_, left_string, right_string, size, call.loc, false);
