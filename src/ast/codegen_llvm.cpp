@@ -1586,29 +1586,7 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
   Value *val;
   if (shouldBeOnStackAlready(assignment.expr->type))
   {
-    if (expr_points_to_scratch_buffer_)
-    {
-      // we need to take a copy of the contents
-      CallInst *val_map = b_.CreateGetValMap(ctx_, assignment.expr->loc);
-
-      auto zeroed_area_ptr = b_.getInt64(
-          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-      // zero it out first
-      b_.CreateProbeRead(ctx_,
-                         val_map,
-                         assignment.expr->type.size,
-                         ConstantExpr::getCast(Instruction::IntToPtr,
-                                               zeroed_area_ptr,
-                                               b_.getInt8PtrTy()),
-                         assignment.expr->loc);
-      b_.CREATE_MEMCPY(val_map, expr_, assignment.expr->type.size, 1);
-      val = val_map;
-    }
-    else
-    {
-      val = expr_;
-    }
+    val = expr_;
   }
   else if (map.type.IsCastTy())
   {
@@ -2045,29 +2023,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
       expr->accept(*this);
       if (shouldBeOnStackAlready(expr->type))
       {
-        if (expr_points_to_scratch_buffer_)
-        {
-          // we need to take a copy of the contents
-          CallInst *key_map = b_.CreateGetKeyMap(ctx_, expr->loc);
-
-          auto zeroed_area_ptr = b_.getInt64(
-              reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-          // zero it out first
-          b_.CreateProbeRead(ctx_,
-                             key_map,
-                             expr->type.size,
-                             ConstantExpr::getCast(Instruction::IntToPtr,
-                                                   zeroed_area_ptr,
-                                                   b_.getInt8PtrTy()),
-                             expr->loc);
-          b_.CREATE_MEMCPY(key_map, expr_, expr->type.size, 1);
-          key = key_map;
-        }
-        else
-        {
-          key = expr_;
-        }
+        key = expr_;
       }
       else
       {
@@ -2080,19 +2036,27 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
     else
     {
       // Two or more values as a map key (e.g, @[comm, pid] = 1;)
-      bool needs_map = false;
       size_t size = 0;
       for (Expression *expr : *map.vargs)
       {
         size += expr->type.size;
-        if (expr->type.IsStringTy())
-        {
-          needs_map = true;
-        }
       }
-      if (needs_map)
+      std::function<Value *(size_t)> get_offset_val;
+      auto buffer_key_iter = bpftrace_.key_map_keys_.find(
+          static_cast<Node *>(&map));
+      if (buffer_key_iter == bpftrace_.key_map_keys_.end()) // no map buffer
+                                                            // required
       {
-        key = b_.CreateGetKeyMap(ctx_, map.loc);
+        key = b_.CreateAllocaBPF(size, map.ident + "_key");
+        b_.CREATE_MEMSET(key, b_.getInt8(0), size, 1);
+        get_offset_val = [this, key](size_t offset) {
+          return b_.CreateGEP(key, { b_.getInt64(0), b_.getInt64(offset) });
+        };
+      }
+      else
+      {
+        auto [node_ptr, buffer_key] = *buffer_key_iter;
+        key = b_.CreateGetKeyMap(ctx_, buffer_key, map.loc);
         auto zeroed_area_ptr = b_.getInt64(
             reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
@@ -2104,11 +2068,9 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
                                                  zeroed_area_ptr,
                                                  b_.getInt8PtrTy()),
                            map.loc);
-      }
-      else
-      {
-        key = b_.CreateAllocaBPF(size, map.ident + "_key");
-        b_.CREATE_MEMSET(key, b_.getInt8(0), size, 1);
+        get_offset_val = [this, key](size_t offset) {
+          return b_.CreateGEP(key, b_.getInt32(offset));
+        };
       }
 
       size_t offset = 0;
@@ -2116,16 +2078,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
       for (Expression *expr : *map.vargs)
       {
         expr->accept(*this);
-        Value *offset_val;
-        if (needs_map)
-        {
-          offset_val = b_.CreateGEP(key, b_.getInt32(offset));
-        }
-        else
-        {
-          offset_val = b_.CreateGEP(key,
-                                    { b_.getInt64(0), b_.getInt64(offset) });
-        }
+        Value *offset_val = get_offset_val(offset);
 
         if (shouldBeOnStackAlready(expr->type))
         {

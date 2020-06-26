@@ -159,13 +159,16 @@ public:
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
   // any expression that returns a string that it created
   std::unordered_map<ast::Node *, int> str_map_keys_;
+  // each composite key expression needs its own distinct scratch buffer
+  // @["uh", @["hello", "world"]]
+  std::unordered_map<ast::Node *, int> key_map_keys_;
   // still needed, but 1 suffices
   std::unique_ptr<IMap> join_map_;
   // still needed, but 1 suffices
   std::unique_ptr<IMap> fmtstr_map_;
   // needed more than ever
   std::unique_ptr<IMap> str_map_;
-  // won't be needed any more
+  // still needed
   std::unique_ptr<IMap> key_map_;
   // won't be needed any more
   std::unique_ptr<IMap> val_map_;

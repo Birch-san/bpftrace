@@ -1077,6 +1077,7 @@ void SemanticAnalyser::visit(Map &map)
 
   if (map.vargs) {
     size_t args_size = 0;
+    bool needs_key_map = false;
     for (unsigned int i = 0; i < map.vargs->size(); i++){
       Expression * expr = map.vargs->at(i);
       expr->accept(*this);
@@ -1104,7 +1105,7 @@ void SemanticAnalyser::visit(Map &map)
       }
       else if (expr->type.IsStringTy())
       {
-        needs_key_map_ = true;
+        needs_key_map_ = needs_key_map = true;
       }
       args_size += expr->type.size;
 
@@ -1125,6 +1126,9 @@ void SemanticAnalyser::visit(Map &map)
       }
     }
     max_key_size_ = std::max(max_key_size_, args_size);
+    if (is_final_pass() && needs_key_map)
+      bpftrace_.key_map_keys_.emplace(static_cast<Node *>(&map),
+                                      bpftrace_.key_map_keys_.size());
   }
 
   if (is_final_pass()) {
@@ -2383,24 +2387,24 @@ int SemanticAnalyser::create_maps(bool debug)
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
 
-  // if (needs_key_map_)
-  // {
-  //   std::string map_ident = "key";
+  if (needs_key_map_)
+  {
+    std::string map_ident = "key";
 
-  //   SizedType type = CreateString(max_key_size_);
-  //   MapKey key;
-  //   if (debug)
-  //     bpftrace_.key_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
-  //                                                              type,
-  //                                                              key);
-  //   else
-  //   {
-  //     bpftrace_.key_map_ = std::make_unique<bpftrace::Map>(
-  //         map_ident, type, key, 1, true);
-  //   }
-  //   failed_maps += is_invalid_map(bpftrace_.key_map_->mapfd_);
-  //   max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_key_size_);
-  // }
+    SizedType type = CreateString(max_key_size_);
+    MapKey key;
+    if (debug)
+      bpftrace_.key_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
+                                                               type,
+                                                               key);
+    else
+    {
+      bpftrace_.key_map_ = std::make_unique<bpftrace::Map>(
+          map_ident, type, key, 1, true);
+    }
+    failed_maps += is_invalid_map(bpftrace_.key_map_->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_key_size_);
+  }
 
   // if (needs_val_map_)
   // {

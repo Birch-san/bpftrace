@@ -283,10 +283,12 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
       ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc, key);
 }
 
-CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
+                                        int key,
+                                        const location &loc)
 {
   return CreateGetScratchMap(
-      ctx, bpftrace_.key_map_->mapfd_, "lookup_key_map", loc);
+      ctx, bpftrace_.key_map_->mapfd_, "lookup_key_map", loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
