@@ -157,13 +157,23 @@ public:
   std::vector<std::tuple<std::string, std::vector<Field>>> cat_args_;
   std::unordered_map<int64_t, struct HelperErrorInfo> helper_error_info_;
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
+  // any expression that returns a string that it created
+  std::unordered_map<ast::Node *, int> str_map_keys_;
+  // still needed, but 1 suffices
   std::unique_ptr<IMap> join_map_;
+  // still needed, but 1 suffices
   std::unique_ptr<IMap> fmtstr_map_;
+  // needed more than ever
   std::unique_ptr<IMap> str_map_;
+  // won't be needed any more
   std::unique_ptr<IMap> key_map_;
+  // won't be needed any more
   std::unique_ptr<IMap> val_map_;
+  // still needed (well, maybe there's a way), but 1 suffices
   std::unique_ptr<IMap> ternary_map_;
+  // won't be needed any more
   std::unique_ptr<IMap> strncmp_map_;
+  // contribute keys to str map
   std::unique_ptr<IMap> buf_map_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;

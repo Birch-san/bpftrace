@@ -42,7 +42,7 @@ Map::Map(const std::string &name,
   if (key_size == 0)
     key_size = 8;
 
-  if (is_scratch_map || (type.IsCountTy() && !key.args_.size()))
+  if (type.IsCountTy() && !key.args_.size())
   {
     map_type_ = BPF_MAP_TYPE_PERCPU_ARRAY;
     max_entries = 1;
@@ -54,6 +54,11 @@ Map::Map(const std::string &name,
            (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)))
   {
       map_type_ = BPF_MAP_TYPE_PERCPU_HASH;
+  }
+  else if (is_scratch_map)
+  {
+    map_type_ = BPF_MAP_TYPE_PERCPU_ARRAY;
+    key_size = 4;
   }
   else
     map_type_ = BPF_MAP_TYPE_HASH;

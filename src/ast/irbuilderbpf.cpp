@@ -249,21 +249,23 @@ CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
                                             const std::string &name,
-                                            const location &loc)
+                                            const location &loc,
+                                            int key)
 {
-  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc);
+  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
                                             const std::string &name,
                                             PointerType *ptr_ty,
-                                            const location &loc)
+                                            const location &loc,
+                                            int key)
 {
-  AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  CreateStore(getInt32(0), key);
+  AllocaInst *keyAlloca = CreateAllocaBPF(getInt32Ty(), "key");
+  CreateStore(getInt32(key), keyAlloca);
 
-  CallInst *call = createMapLookup(map_fd, key, ptr_ty, name);
+  CallInst *call = createMapLookup(map_fd, keyAlloca, ptr_ty, name);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
@@ -273,10 +275,12 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   return call;
 }
 
-CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
+                                        int key,
+                                        const location &loc)
 {
   return CreateGetScratchMap(
-      ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc);
+      ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx, const location &loc)

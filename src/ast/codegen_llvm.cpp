@@ -477,7 +477,8 @@ void CodegenLLVM::visit(Call &call)
   }
   else if (call.func == "str")
   {
-    CallInst *str_map = b_.CreateGetStrMap(ctx_, call.loc);
+    int key = bpftrace_.str_map_keys_[static_cast<Node *>(&call)];
+    CallInst *str_map = b_.CreateGetStrMap(ctx_, key, call.loc);
 
     auto zeroed_area_ptr = b_.getInt64(
         reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
@@ -947,6 +948,10 @@ void CodegenLLVM::visit(Call &call)
 
       right_arg->accept(*this);
       Value *right_string = strncmp_map;
+      // this can just be a MEMCPY
+      // OR! instead of copying content into a buffer, and setting expr_ to
+      // point to buffer... could we just create a GEP, and assign that to
+      // expr_?
       b_.CreateProbeReadStr(
           ctx_, right_string, bpftrace_.strlen_, expr_, call.loc);
 
@@ -1331,6 +1336,8 @@ void CodegenLLVM::visit(Ternary &ternary)
     // copy selected string via CreateMemCpy
     b_.SetInsertPoint(left_block);
     ternary.left->accept(*this);
+    // instead of copying content into a buffer, and setting expr_ to point to
+    // buffer... could we just create a GEP, and assign that to expr_?
     b_.CREATE_MEMCPY(buf, expr_, ternary.type.size, 1);
     if (!ternary.left->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);

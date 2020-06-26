@@ -81,7 +81,7 @@ public:
   CallInst   *CreateGetRandom();
   CallInst   *CreateGetStackId(Value *ctx, bool ustack, StackType stack_type, const location& loc);
   CallInst   *CreateGetJoinMap(Value *ctx, const location& loc);
-  CallInst   *CreateGetStrMap(Value *ctx, const location& loc);
+  CallInst   *CreateGetStrMap(Value *ctx, int key, const location& loc);
   CallInst   *CreateGetKeyMap(Value *ctx, const location& loc);
   CallInst   *CreateGetValMap(Value *ctx, const location& loc);
   CallInst   *CreateGetTernaryMap(Value *ctx, const location& loc);
@@ -107,8 +107,8 @@ private:
   CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem");
   CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem");
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0);
 
   std::map<std::string, StructType *> structs_;
   // clang-format on
