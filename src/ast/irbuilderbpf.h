@@ -82,7 +82,7 @@ public:
   CallInst   *CreateGetStackId(Value *ctx, bool ustack, StackType stack_type, const location& loc);
   CallInst   *CreateGetJoinMap(Value *ctx, const location& loc);
   CallInst   *CreateGetStrMap(Value *ctx, int key, const location& loc);
-  CallInst   *CreateGetKeyMap(Value *ctx, int key, const location& loc);
+  CallInst   *CreateGetKeyMap(Value *ctx, int key, PointerType *key_struct_ptr_ty, const location& loc);
   CallInst   *CreateGetValMap(Value *ctx, const location& loc);
   CallInst   *CreateGetTernaryMap(Value *ctx, const location& loc);
   CallInst   *CreateGetStrnCmpMap(Value *ctx, const location& loc);

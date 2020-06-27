@@ -285,10 +285,15 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
 
 CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
                                         int key,
+                                        PointerType *key_struct_ptr_ty,
                                         const location &loc)
 {
-  return CreateGetScratchMap(
-      ctx, bpftrace_.key_map_->mapfd_, "lookup_key_map", loc, key);
+  return CreateGetScratchMap(ctx,
+                             bpftrace_.key_map_->mapfd_,
+                             "lookup_key_map",
+                             key_struct_ptr_ty,
+                             loc,
+                             key);
 }
 
 CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
