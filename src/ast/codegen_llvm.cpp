@@ -554,7 +554,8 @@ void CodegenLLVM::visit(Call &call)
     int struct_size = layout_.getTypeAllocSize(buf_struct);
 
     auto buf_struct_ptr_ty = PointerType::get(buf_struct, 0);
-    CallInst *buf = b_.CreateGetBufMap(ctx_, buf_struct_ptr_ty, call.loc);
+    int key = bpftrace_.str_map_keys_[static_cast<Node *>(&call)];
+    CallInst *buf = b_.CreateGetBufMap(ctx_, key, buf_struct_ptr_ty, call.loc);
 
     auto zeroed_area_ptr = b_.getInt64(
         reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));

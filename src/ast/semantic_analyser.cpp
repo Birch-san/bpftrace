@@ -559,7 +559,7 @@ void SemanticAnalyser::visit(Call &call)
   }
   else if (call.func == "buf")
   {
-    needs_buf_map_ = true;
+    needs_str_map_ = true;
     if (!check_varargs(call, 1, 2))
       return;
 
@@ -2400,7 +2400,7 @@ int SemanticAnalyser::create_maps(bool debug)
     else
     {
       bpftrace_.key_map_ = std::make_unique<bpftrace::Map>(
-          map_ident, type, key, 1, true);
+          map_ident, type, key, bpftrace_.key_map_keys_.size(), true);
     }
     failed_maps += is_invalid_map(bpftrace_.key_map_->mapfd_);
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_key_size_);

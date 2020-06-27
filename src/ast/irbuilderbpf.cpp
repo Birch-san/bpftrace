@@ -310,14 +310,18 @@ CallInst *IRBuilderBPF::CreateGetStrnCmpMap(Value *ctx, const location &loc)
 }
 
 CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
+                                        int key,
                                         PointerType *buf_struct_ptr_ty,
                                         const location &loc)
 {
+  // buf() uses same scratch map as str(),
+  // because they both want the same value size, strlen_
   return CreateGetScratchMap(ctx,
-                             bpftrace_.buf_map_->mapfd_,
+                             bpftrace_.str_map_->mapfd_,
                              "lookup_buf_map",
                              buf_struct_ptr_ty,
-                             loc);
+                             loc,
+                             key);
 }
 
 CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
