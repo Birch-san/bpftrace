@@ -97,7 +97,7 @@ private:
   // Used if there are duplicate USDT entries
   int current_usdt_location_index_{ 0 };
 
-  std::map<std::string, AllocaInst *> variables_;
+  std::map<std::string, CallInst *> variables_;
   int printf_id_ = 0;
   int time_id_ = 0;
   int cat_id_ = 0;

@@ -1272,9 +1272,12 @@ void CodegenLLVM::visit(Ternary &ternary)
     b_.CreateProbeRead(ctx_,
                        buf,
                        bpftrace_.strlen_,
-                       ConstantExpr::getCast(Instruction::IntToPtr,
-                                             zeroed_area_ptr,
-                                             b_.getInt8PtrTy()),
+                       ConstantExpr::getCast(
+                           Instruction::IntToPtr,
+                           zeroed_area_ptr,
+                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
+                                                           bpftrace_.strlen_),
+                                            0)),
                        ternary.loc);
   }
   Value *result = b_.CreateAllocaBPF(ternary.type, "result");
@@ -1610,7 +1613,20 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
 
   if (variables_.find(var.ident) == variables_.end())
   {
-    AllocaInst *val = b_.CreateAllocaBPFInit(var.type, var.ident);
+    CallInst *val = b_.CreateGetVarMap(ctx_, var, assignment.loc);
+    auto &map = bpftrace_.vars_[var.ident];
+    llvm::Type *type = b_.GetType(map->type_);
+    auto zeroed_area_ptr = b_.getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+    // zero it out first
+    b_.CreateProbeRead(ctx_,
+                       val,
+                       bpftrace_.strlen_,
+                       ConstantExpr::getCast(Instruction::IntToPtr,
+                                             zeroed_area_ptr,
+                                             PointerType::get(type, 0)),
+                       assignment.loc);
     variables_[var.ident] = val;
   }
 

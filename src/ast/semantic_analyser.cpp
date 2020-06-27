@@ -2278,6 +2278,8 @@ int SemanticAnalyser::create_maps(bool debug)
     }
   }
 
+  size_t max_zero_buffer_size_ = 0;
+
   for (auto [ident, type] : variable_val_)
   {
     std::string map_name = "$" + ident;
@@ -2292,8 +2294,9 @@ int SemanticAnalyser::create_maps(bool debug)
     {
       bpftrace_.vars_[map_name] = std::make_unique<bpftrace::Map>(
           map_name, type, key, 1);
-      failed_maps += is_invalid_map(bpftrace_.vars_[map_name]->mapfd_);
     }
+    failed_maps += is_invalid_map(bpftrace_.vars_[map_name]->mapfd_);
+    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, type.size);
   }
 
   for (StackType stack_type : needs_stackid_maps_) {
@@ -2359,8 +2362,6 @@ int SemanticAnalyser::create_maps(bool debug)
     bpftrace_.perf_event_map_ = std::make_unique<bpftrace::Map>(BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     failed_maps += is_invalid_map(bpftrace_.perf_event_map_->mapfd_);
   }
-
-  size_t max_zero_buffer_size_ = 0;
 
   if (needs_fmtstr_map_)
   {

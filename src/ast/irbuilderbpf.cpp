@@ -213,12 +213,6 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
-CallInst *IRBuilderBPF::CreateBpfPseudoCall(Variable &var)
-{
-  int mapfd = bpftrace_.vars_[var.ident]->mapfd_;
-  return CreateBpfPseudoCall(mapfd);
-}
-
 CallInst *IRBuilderBPF::createMapLookup(int mapfd,
                                         Value *key,
                                         const std::string &name)
@@ -279,6 +273,19 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                         /*compare_zero=*/true,
                         /*require_success=*/true);
   return call;
+}
+
+CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
+                                        Variable &var,
+                                        const location &loc)
+{
+  auto &map = bpftrace_.vars_[var.ident];
+  llvm::Type *type = GetType(map->type_);
+  return CreateGetScratchMap(ctx,
+                             map->mapfd_,
+                             "lookup_$" + var.ident + "_map",
+                             PointerType::get(type, 0),
+                             loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
