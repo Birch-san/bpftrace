@@ -162,6 +162,8 @@ public:
   // each composite key expression needs its own distinct scratch buffer
   // @["uh", @["hello", "world"]]
   std::unordered_map<ast::Node *, int> key_map_keys_;
+  // any expression that returns a buf that it created
+  std::unordered_map<ast::Node *, int> buf_map_keys_;
   // still needed, but 1 suffices
   std::unique_ptr<IMap> join_map_;
   // still needed, but 1 suffices
@@ -176,7 +178,7 @@ public:
   std::unique_ptr<IMap> ternary_map_;
   // won't be needed any more
   std::unique_ptr<IMap> strncmp_map_;
-  // contribute keys to str map
+  // still needed
   std::unique_ptr<IMap> buf_map_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;
