@@ -516,7 +516,6 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateLifetimeEnd(strlen);
 
     expr_ = str_map;
-    expr_points_to_scratch_buffer_ = true;
   }
   else if (call.func == "buf")
   {
@@ -583,7 +582,6 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateProbeRead(ctx_, buf_data_offset, length, expr_, call.loc);
 
     expr_ = buf;
-    expr_points_to_scratch_buffer_ = true;
   }
   else if (call.func == "kaddr")
   {
@@ -1329,7 +1327,6 @@ void CodegenLLVM::visit(Ternary &ternary)
 
     b_.SetInsertPoint(done);
     expr_ = buf;
-    expr_points_to_scratch_buffer_ = true;
   }
 }
 
@@ -1554,7 +1551,6 @@ void CodegenLLVM::visit(AssignMapStatement &assignment)
 {
   Map &map = *assignment.map;
 
-  expr_points_to_scratch_buffer_ = false;
   assignment.expr->accept(*this);
 
   if (!expr_) // Some functions do the assignments themselves
@@ -1995,7 +1991,6 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
     // A single value as a map key (e.g., @[comm] = 0;)
     if (map.vargs->size() == 1)
     {
-      expr_points_to_scratch_buffer_ = false;
       Expression *expr = map.vargs->at(0);
       expr->accept(*this);
       if (shouldBeOnStackAlready(expr->type))
