@@ -57,6 +57,7 @@ public:
   llvm::ConstantInt *GetIntSameSize(uint64_t C, llvm::Type *ty);
   CallInst   *CreateBpfPseudoCall(int mapfd);
   CallInst   *CreateBpfPseudoCall(Map &map);
+  CallInst   *CreateBpfPseudoCall(Variable &var);
   Value      *CreateMapLookupElem(Value* ctx, Map &map, Value *key, const location& loc);
   Value      *CreateMapLookupElem(Value* ctx, int mapfd, Value *key, SizedType &type, const location& loc);
   void        CreateMapUpdateElem(Value* ctx, Map &map, Value *key, Value *val, const location& loc);

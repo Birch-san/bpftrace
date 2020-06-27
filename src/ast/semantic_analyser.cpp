@@ -2224,10 +2224,9 @@ int SemanticAnalyser::create_maps(bool debug)
 {
   uint32_t failed_maps = 0;
   auto is_invalid_map = [](int a) -> uint8_t { return a < 0 ? 1 : 0; };
-  for (auto &map_val : map_val_)
+  for (auto [ident, type] : map_val_)
   {
-    std::string map_name = map_val.first;
-    SizedType type = map_val.second;
+    std::string map_name = "@" + ident;
 
     auto search_args = map_key_.find(map_name);
     if (search_args == map_key_.end())
@@ -2276,6 +2275,24 @@ int SemanticAnalyser::create_maps(bool debug)
         bpftrace_.map_ids_.push_back(map_name);
         failed_maps += is_invalid_map(bpftrace_.maps_[map_name]->mapfd_);
       }
+    }
+  }
+
+  for (auto [ident, type] : variable_val_)
+  {
+    std::string map_name = "$" + ident;
+    MapKey key;
+    if (debug)
+    {
+      bpftrace_.vars_[map_name] = std::make_unique<bpftrace::FakeMap>(map_name,
+                                                                      type,
+                                                                      key);
+    }
+    else
+    {
+      bpftrace_.vars_[map_name] = std::make_unique<bpftrace::Map>(
+          map_name, type, key, 1);
+      failed_maps += is_invalid_map(bpftrace_.vars_[map_name]->mapfd_);
     }
   }
 

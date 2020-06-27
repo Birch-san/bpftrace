@@ -213,6 +213,12 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
   return CreateBpfPseudoCall(mapfd);
 }
 
+CallInst *IRBuilderBPF::CreateBpfPseudoCall(Variable &var)
+{
+  int mapfd = bpftrace_.vars_[var.ident]->mapfd_;
+  return CreateBpfPseudoCall(mapfd);
+}
+
 CallInst *IRBuilderBPF::createMapLookup(int mapfd,
                                         Value *key,
                                         const std::string &name)
