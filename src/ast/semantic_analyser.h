@@ -110,12 +110,6 @@ private:
   uint32_t loop_depth_ = 0;
   bool needs_join_map_ = false;
   bool needs_fmtstr_map_ = false;
-  bool needs_str_map_ = false;
-  bool needs_key_map_ = false;
-  bool needs_val_map_ = false;
-  bool needs_ternary_map_ = false;
-  bool needs_strncmp_map_ = false;
-  bool needs_buf_map_ = false;
   bool needs_elapsed_map_ = false;
   bool has_begin_probe_ = false;
   bool has_end_probe_ = false;

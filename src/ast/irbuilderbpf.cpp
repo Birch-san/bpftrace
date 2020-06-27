@@ -250,21 +250,23 @@ CallInst *IRBuilderBPF::CreateGetJoinMap(Value *ctx, const location &loc)
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
                                             const std::string &name,
-                                            const location &loc)
+                                            const location &loc,
+                                            int key)
 {
-  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc);
+  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
                                             const std::string &name,
                                             PointerType *ptr_ty,
-                                            const location &loc)
+                                            const location &loc,
+                                            int key)
 {
-  AllocaInst *key = CreateAllocaBPF(getInt32Ty(), "key");
-  CreateStore(getInt32(0), key);
+  AllocaInst *keyAlloca = CreateAllocaBPF(getInt32Ty(), "key");
+  CreateStore(getInt32(key), keyAlloca);
 
-  CallInst *call = createMapLookup(map_fd, key, ptr_ty, name);
+  CallInst *call = createMapLookup(map_fd, keyAlloca, ptr_ty, name);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
@@ -274,37 +276,34 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   return call;
 }
 
-CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
+                                        int key,
+                                        const location &loc)
 {
   return CreateGetScratchMap(
-      ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc);
+      ctx,
+      bpftrace_.str_map_->mapfd_,
+      "lookup_str_map",
+      PointerType::get(ArrayType::get(getInt8Ty(), bpftrace_.strlen_), 0),
+      loc,
+      key);
 }
 
-CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
+                                        int key,
+                                        PointerType *key_struct_ptr_ty,
+                                        const location &loc)
 {
-  return CreateGetScratchMap(
-      ctx, bpftrace_.key_map_->mapfd_, "lookup_key_map", loc);
-}
-
-CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.val_map_->mapfd_, "lookup_val_map", loc);
-}
-
-CallInst *IRBuilderBPF::CreateGetTernaryMap(Value *ctx, const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.ternary_map_->mapfd_, "lookup_ternary_map", loc);
-}
-
-CallInst *IRBuilderBPF::CreateGetStrnCmpMap(Value *ctx, const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.strncmp_map_->mapfd_, "lookup_strncmp_map", loc);
+  return CreateGetScratchMap(ctx,
+                             bpftrace_.key_map_->mapfd_,
+                             "lookup_key_map",
+                             key_struct_ptr_ty,
+                             loc,
+                             key);
 }
 
 CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
+                                        int key,
                                         PointerType *buf_struct_ptr_ty,
                                         const location &loc)
 {
@@ -312,7 +311,8 @@ CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
                              bpftrace_.buf_map_->mapfd_,
                              "lookup_buf_map",
                              buf_struct_ptr_ty,
-                             loc);
+                             loc,
+                             key);
 }
 
 CallInst *IRBuilderBPF::CreateGetFmtStrMap(Value *ctx,
@@ -730,8 +730,13 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
      }
   */
 
-  assert(val1->getType() == getInt8PtrTy());
-  assert(val2->getType() == getInt8PtrTy());
+  for (Value *val : { val1, val2 })
+  {
+    PointerType *valp = cast<PointerType>(val->getType());
+    assert(valp->getElementType()->isArrayTy() &&
+           valp->getElementType()->getArrayNumElements() >= n &&
+           valp->getElementType()->getArrayElementType() == getInt8Ty());
+  }
 
   Function *parent = GetInsertBlock()->getParent();
   AllocaInst *store = CreateAllocaBPF(getInt8Ty(), "strcmp.result");
