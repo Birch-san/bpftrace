@@ -158,13 +158,13 @@ public:
   std::vector<SizedType> non_map_print_args_;
   std::unordered_map<int64_t, struct HelperErrorInfo> helper_error_info_;
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
+  std::unordered_map<ast::Node *, int> str_map_keys_;
+  std::unordered_map<ast::Node *, int> key_map_keys_;
+  std::unordered_map<ast::Node *, int> buf_map_keys_;
   std::unique_ptr<IMap> join_map_;
   std::unique_ptr<IMap> fmtstr_map_;
   std::unique_ptr<IMap> str_map_;
   std::unique_ptr<IMap> key_map_;
-  std::unique_ptr<IMap> val_map_;
-  std::unique_ptr<IMap> ternary_map_;
-  std::unique_ptr<IMap> strncmp_map_;
   std::unique_ptr<IMap> buf_map_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;
