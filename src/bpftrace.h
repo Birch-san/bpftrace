@@ -159,13 +159,11 @@ public:
   std::unordered_map<StackType, std::unique_ptr<IMap>> stackid_maps_;
   std::unordered_map<ast::Node *, int> str_map_keys_;
   std::unordered_map<ast::Node *, int> key_map_keys_;
-  std::unordered_map<ast::Node *, int> ternary_map_keys_;
   std::unordered_map<ast::Node *, int> buf_map_keys_;
   std::unique_ptr<IMap> join_map_;
   std::unique_ptr<IMap> fmtstr_map_;
   std::unique_ptr<IMap> str_map_;
   std::unique_ptr<IMap> key_map_;
-  std::unique_ptr<IMap> ternary_map_;
   std::unique_ptr<IMap> buf_map_;
   std::unique_ptr<IMap> elapsed_map_;
   std::unique_ptr<IMap> perf_event_map_;

@@ -1421,8 +1421,8 @@ void SemanticAnalyser::visit(Ternary &ternary)
     if (cond != Type::integer)
       ERR("Invalid condition in ternary: " << cond, ternary.loc);
     if (lhs == Type::string)
-      bpftrace_.ternary_map_keys_.emplace(static_cast<Node *>(&ternary),
-                                          bpftrace_.ternary_map_keys_.size());
+      bpftrace_.str_map_keys_.emplace(static_cast<Node *>(&ternary),
+                                      bpftrace_.str_map_keys_.size());
   }
   if (lhs == Type::string)
   {
@@ -2401,25 +2401,6 @@ int SemanticAnalyser::create_maps(bool debug)
     }
     failed_maps += is_invalid_map(bpftrace_.key_map_->mapfd_);
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, max_key_size_);
-  }
-
-  if (!bpftrace_.ternary_map_keys_.empty())
-  {
-    std::string map_ident = "ternary";
-
-    SizedType type = CreateString(bpftrace_.strlen_);
-    MapKey key;
-    if (debug)
-      bpftrace_.ternary_map_ = std::make_unique<bpftrace::FakeMap>(map_ident,
-                                                                   type,
-                                                                   key);
-    else
-    {
-      bpftrace_.ternary_map_ = std::make_unique<bpftrace::Map>(
-          map_ident, type, key, bpftrace_.ternary_map_keys_.size(), true);
-    }
-    failed_maps += is_invalid_map(bpftrace_.ternary_map_->mapfd_);
-    max_zero_buffer_size_ = std::max(max_zero_buffer_size_, bpftrace_.strlen_);
   }
 
   if (!bpftrace_.buf_map_keys_.empty())

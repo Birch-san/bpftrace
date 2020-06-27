@@ -1264,8 +1264,8 @@ void CodegenLLVM::visit(Ternary &ternary)
   CallInst *buf;
   if (!ternary.type.IsIntTy())
   {
-    int key = bpftrace_.ternary_map_keys_[static_cast<Node *>(&ternary)];
-    buf = b_.CreateGetTernaryMap(ctx_, key, ternary.loc);
+    int key = bpftrace_.str_map_keys_[static_cast<Node *>(&ternary)];
+    buf = b_.CreateGetStrMap(ctx_, key, ternary.loc);
     auto zeroed_area_ptr = b_.getInt64(
         reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 

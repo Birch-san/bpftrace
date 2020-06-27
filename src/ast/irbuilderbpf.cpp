@@ -296,14 +296,6 @@ CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
                              key);
 }
 
-CallInst *IRBuilderBPF::CreateGetTernaryMap(Value *ctx,
-                                            int key,
-                                            const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.ternary_map_->mapfd_, "lookup_ternary_map", loc, key);
-}
-
 CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
                                         int key,
                                         PointerType *buf_struct_ptr_ty,
