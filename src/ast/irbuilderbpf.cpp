@@ -296,22 +296,12 @@ CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
                              key);
 }
 
-CallInst *IRBuilderBPF::CreateGetValMap(Value *ctx, const location &loc)
+CallInst *IRBuilderBPF::CreateGetTernaryMap(Value *ctx,
+                                            int key,
+                                            const location &loc)
 {
   return CreateGetScratchMap(
-      ctx, bpftrace_.val_map_->mapfd_, "lookup_val_map", loc);
-}
-
-CallInst *IRBuilderBPF::CreateGetTernaryMap(Value *ctx, const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.ternary_map_->mapfd_, "lookup_ternary_map", loc);
-}
-
-CallInst *IRBuilderBPF::CreateGetStrnCmpMap(Value *ctx, const location &loc)
-{
-  return CreateGetScratchMap(
-      ctx, bpftrace_.strncmp_map_->mapfd_, "lookup_strncmp_map", loc);
+      ctx, bpftrace_.ternary_map_->mapfd_, "lookup_ternary_map", loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetBufMap(Value *ctx,
