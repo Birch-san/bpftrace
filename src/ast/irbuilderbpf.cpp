@@ -280,7 +280,12 @@ CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
                                         const location &loc)
 {
   return CreateGetScratchMap(
-      ctx, bpftrace_.str_map_->mapfd_, "lookup_str_map", loc, key);
+      ctx,
+      bpftrace_.str_map_->mapfd_,
+      "lookup_str_map",
+      PointerType::get(ArrayType::get(getInt8Ty(), bpftrace_.strlen_), 0),
+      loc,
+      key);
 }
 
 CallInst *IRBuilderBPF::CreateGetKeyMap(Value *ctx,
@@ -724,8 +729,13 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
      }
   */
 
-  assert(val1->getType() == getInt8PtrTy());
-  assert(val2->getType() == getInt8PtrTy());
+  for (Value *val : { val1, val2 })
+  {
+    PointerType *valp = cast<PointerType>(val->getType());
+    assert(valp->getElementType()->isArrayTy() &&
+           valp->getElementType()->getArrayNumElements() >= n &&
+           valp->getElementType()->getArrayElementType() == getInt8Ty());
+  }
 
   Function *parent = GetInsertBlock()->getParent();
   AllocaInst *store = CreateAllocaBPF(getInt8Ty(), "strcmp.result");
