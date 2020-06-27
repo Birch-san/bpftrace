@@ -70,7 +70,8 @@ void CodegenLLVM::visit(String &string)
 {
   string.str.resize(string.type.size-1);
   Constant *const_str = ConstantDataArray::getString(module_->getContext(), string.str, true);
-  AllocaInst *buf = b_.CreateAllocaBPF(string.type, "str");
+  int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
+  CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
   b_.CreateStore(const_str, buf);
   expr_ = buf;
 }
