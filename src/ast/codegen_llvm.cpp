@@ -2398,7 +2398,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
     llvm::Type *ty = b_.GetType(arg.type);
     elements.push_back(ty);
   }
-  StructType *fmt_struct = StructType::create(elements, call_name + "_t", false);
+  StructType *fmt_struct = StructType::create(elements, call_name + "_t", true);
   int struct_size = layout_.getTypeAllocSize(fmt_struct);
 
   auto *struct_layout = layout_.getStructLayout(fmt_struct);
