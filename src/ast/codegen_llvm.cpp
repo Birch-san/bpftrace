@@ -68,11 +68,38 @@ void CodegenLLVM::visit(PositionalParameter &param)
 
 void CodegenLLVM::visit(String &string)
 {
-  string.str.resize(string.type.size-1);
-  Constant *const_str = ConstantDataArray::getString(module_->getContext(), string.str, true);
   int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
   CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
-  b_.CreateStore(const_str, buf);
+
+  auto zeroed_area_ptr = b_.getInt64(
+      reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+
+  // zero it out first
+  b_.CreateProbeRead(
+      ctx_,
+      buf,
+      bpftrace_.strlen_,
+      ConstantExpr::getCast(Instruction::IntToPtr,
+                            zeroed_area_ptr,
+                            PointerType::get(ArrayType::get(b_.getInt8Ty(),
+                                                            bpftrace_.strlen_),
+                                             0)),
+      string.loc);
+
+  auto string_ptr = b_.getInt64(
+      reinterpret_cast<uintptr_t>(string.str.c_str()));
+
+  size_t bytes_len = string.str.size();
+  b_.CreateProbeReadStr(
+      ctx_,
+      buf,
+      bytes_len,
+      ConstantExpr::getCast(
+          Instruction::IntToPtr,
+          string_ptr,
+          PointerType::get(ArrayType::get(b_.getInt8Ty(), bytes_len), 0)),
+      string.loc);
+
   expr_ = buf;
 }
 
@@ -513,9 +540,12 @@ void CodegenLLVM::visit(Call &call)
     b_.CreateProbeRead(ctx_,
                        str_map,
                        bpftrace_.strlen_,
-                       ConstantExpr::getCast(Instruction::IntToPtr,
-                                             zeroed_area_ptr,
-                                             b_.getInt8PtrTy()),
+                       ConstantExpr::getCast(
+                           Instruction::IntToPtr,
+                           zeroed_area_ptr,
+                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
+                                                           bpftrace_.strlen_),
+                                            0)),
                        call.loc);
     b_.CreateProbeReadStr(
         ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
