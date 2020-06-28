@@ -281,10 +281,10 @@ CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
                                         const location &loc)
 {
   auto &map = bpftrace_.vars_[var.ident];
-  llvm::Type *type = GetType(map->type_);
+  llvm::Type *type = GetType(var.type);
   return CreateGetScratchMap(ctx,
                              map->mapfd_,
-                             "lookup_$" + var.ident + "_map",
+                             "lookup_" + var.ident + "_map",
                              PointerType::get(type, 0),
                              loc);
 }
