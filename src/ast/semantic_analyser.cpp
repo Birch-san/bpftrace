@@ -2224,10 +2224,8 @@ int SemanticAnalyser::create_maps(bool debug)
 {
   uint32_t failed_maps = 0;
   auto is_invalid_map = [](int a) -> uint8_t { return a < 0 ? 1 : 0; };
-  for (auto [ident, type] : map_val_)
+  for (auto [map_name, type] : map_val_)
   {
-    std::string map_name = "@" + ident;
-
     auto search_args = map_key_.find(map_name);
     if (search_args == map_key_.end())
     {
@@ -2280,9 +2278,8 @@ int SemanticAnalyser::create_maps(bool debug)
 
   size_t max_zero_buffer_size_ = 0;
 
-  for (auto [ident, type] : variable_val_)
+  for (auto [map_name, type] : variable_val_)
   {
-    std::string map_name = "$" + ident;
     MapKey key;
     if (debug)
     {
@@ -2293,7 +2290,7 @@ int SemanticAnalyser::create_maps(bool debug)
     else
     {
       bpftrace_.vars_[map_name] = std::make_unique<bpftrace::Map>(
-          map_name, type, key, 1);
+          map_name, type, key, 1, true);
     }
     failed_maps += is_invalid_map(bpftrace_.vars_[map_name]->mapfd_);
     max_zero_buffer_size_ = std::max(max_zero_buffer_size_, type.size);
