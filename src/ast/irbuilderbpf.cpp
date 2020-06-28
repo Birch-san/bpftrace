@@ -275,6 +275,19 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   return call;
 }
 
+CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
+                                        Variable &var,
+                                        const location &loc)
+{
+  auto &map = bpftrace_.vars_[var.ident];
+  llvm::Type *type = GetType(map->type_);
+  return CreateGetScratchMap(ctx,
+                             map->mapfd_,
+                             "lookup_$" + var.ident + "_map",
+                             PointerType::get(type, 0),
+                             loc);
+}
+
 CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
                                         int key,
                                         const location &loc)
