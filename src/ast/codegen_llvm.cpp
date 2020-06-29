@@ -1073,7 +1073,7 @@ void CodegenLLVM::visit(Binop &binop)
 
       size_t len = std::min(binop.left->type.size, binop.right->type.size);
       expr_ = b_.CreateStrncmp(
-          ctx_, left_string, right_string, len + 1, binop.loc, inverse);
+          ctx_, left_string, right_string, len, binop.loc, inverse);
     }
   }
   else if (type.IsBufferTy())

@@ -671,9 +671,9 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx __attribute__((unused)),
   assert(ctx && ctx->getType() == getInt8PtrTy());
 #ifndef NDEBUG
   PointerType *valp = cast<PointerType>(val->getType());
-  assert(valp->getElementType()->isArrayTy() &&
-         valp->getElementType()->getArrayNumElements() >= n &&
-         valp->getElementType()->getArrayElementType() == getInt8Ty());
+  assert(valp->getElementType()->isArrayTy());
+  assert(valp->getElementType()->getArrayNumElements() >= n);
+  assert(valp->getElementType()->getArrayElementType() == getInt8Ty());
 #endif
 
   Function *parent = GetInsertBlock()->getParent();
@@ -746,9 +746,9 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
   for (Value *val : { val1, val2 })
   {
     PointerType *valp = cast<PointerType>(val->getType());
-    assert(valp->getElementType()->isArrayTy() &&
-           valp->getElementType()->getArrayNumElements() >= n &&
-           valp->getElementType()->getArrayElementType() == getInt8Ty());
+    assert(valp->getElementType()->isArrayTy());
+    assert(valp->getElementType()->getArrayNumElements() >= n);
+    assert(valp->getElementType()->getArrayElementType() == getInt8Ty());
   }
 
   Function *parent = GetInsertBlock()->getParent();
@@ -941,10 +941,10 @@ void IRBuilderBPF::CreateGetCurrentComm(Value *ctx,
                                         size_t size,
                                         const location &loc)
 {
-  assert(buf->getType()->getElementType()->isArrayTy() &&
-         buf->getType()->getElementType()->getArrayNumElements() >= size &&
-         buf->getType()->getElementType()->getArrayElementType() ==
-             getInt8Ty());
+  assert(buf->getType()->getElementType()->isArrayTy());
+  assert(buf->getType()->getElementType()->getArrayNumElements() >= size);
+  assert(buf->getType()->getElementType()->getArrayElementType() ==
+         getInt8Ty());
 
   // int bpf_get_current_comm(char *buf, int size_of_buf)
   // Return: 0 on success or negative error
