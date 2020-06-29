@@ -13,7 +13,7 @@ entry:
   %comm = alloca [16 x i8], align 1
   %1 = getelementptr inbounds [16 x i8], [16 x i8]* %comm, i64 0, i64 0
   call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %1)
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 1 %1, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0i8.i64(i8* nonnull %1, i8 0, i64 16, i32 1, i1 false)
   %get_comm = call i64 inttoptr (i64 16 to i64 ([16 x i8]*, i64)*)([16 x i8]* nonnull %comm, i64 16)
   %2 = load i8, i8* %1, align 1
   %strcmp.cmp = icmp eq i8 %2, 115
@@ -25,7 +25,7 @@ pred_false:                                       ; preds = %strcmp.loop5, %strc
 pred_true:                                        ; preds = %strcmp.loop5
   %3 = getelementptr inbounds [16 x i8], [16 x i8]* %comm9, i64 0, i64 0
   call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %3)
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 1 %3, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0i8.i64(i8* nonnull %3, i8 0, i64 16, i32 1, i1 false)
   %get_comm10 = call i64 inttoptr (i64 16 to i64 ([16 x i8]*, i64)*)([16 x i8]* nonnull %comm9, i64 16)
   %pseudo = call i64 @llvm.bpf.pseudo(i64 1, i64 1)
   %lookup_elem = call i8* inttoptr (i64 1 to i8* (i64, [16 x i8]*)*)(i64 %pseudo, [16 x i8]* nonnull %comm9)
@@ -78,7 +78,7 @@ lookup_merge:                                     ; preds = %pred_true, %lookup_
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1) #1
+declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

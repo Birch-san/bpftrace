@@ -3,7 +3,7 @@ source_filename = "bpftrace"
 target datalayout = "e-m:e-p:64:64-i64:64-n32:64-S128"
 target triple = "bpf-pc-linux"
 
-%helper_error_t = type <{ i64, i64, i32 }>
+%helper_error_t = type <{ i64, i64, i32, i8 }>
 
 ; Function Attrs: nounwind
 declare i64 @llvm.bpf.pseudo(i64, i64) #0
@@ -37,41 +37,43 @@ lookup_failure:                                   ; preds = %entry
   store i64 0, i64* %5, align 8
   %6 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t, i64 0, i32 2
   store i32 0, i32* %6, align 8
+  %7 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t, i64 0, i32 3
+  store i8 0, i8* %7, align 4
   %pseudo1 = call i64 @llvm.bpf.pseudo(i64 1, i64 2)
-  %get_cpu_id = call i64 inttoptr (i64 8 to i64 ()*)()
-  %perf_event_output = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo1, i64 %get_cpu_id, %helper_error_t* nonnull %helper_error_t, i64 20)
+  %perf_event_output = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo1, i64 4294967295, %helper_error_t* nonnull %helper_error_t, i64 21)
   call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %3)
   br label %lookup_merge
 
 lookup_merge:                                     ; preds = %lookup_failure, %lookup_success
   %lookup_elem_val.0 = phi i64 [ %phitmp, %lookup_success ], [ 1, %lookup_failure ]
-  %7 = bitcast i64* %"@_newval" to i8*
-  call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %7)
+  %8 = bitcast i64* %"@_newval" to i8*
+  call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %8)
   store i64 %lookup_elem_val.0, i64* %"@_newval", align 8
   %pseudo2 = call i64 @llvm.bpf.pseudo(i64 1, i64 1)
   %update_elem = call i64 inttoptr (i64 2 to i64 (i64, i64*, i64*, i64)*)(i64 %pseudo2, i64* nonnull %"@_key", i64* nonnull %"@_newval", i64 0)
-  %8 = trunc i64 %update_elem to i32
-  %9 = icmp sgt i32 %8, -1
-  br i1 %9, label %helper_merge, label %helper_failure
+  %9 = trunc i64 %update_elem to i32
+  %10 = icmp sgt i32 %9, -1
+  br i1 %10, label %helper_merge, label %helper_failure
 
 helper_failure:                                   ; preds = %lookup_merge
-  %10 = bitcast %helper_error_t* %helper_error_t3 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %10)
-  %11 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 0
-  store i64 30006, i64* %11, align 8
-  %12 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 1
-  store i64 1, i64* %12, align 8
-  %13 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 2
-  store i32 %8, i32* %13, align 8
+  %11 = bitcast %helper_error_t* %helper_error_t3 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 -1, i8* nonnull %11)
+  %12 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 0
+  store i64 30006, i64* %12, align 8
+  %13 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 1
+  store i64 1, i64* %13, align 8
+  %14 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 2
+  store i32 %9, i32* %14, align 8
+  %15 = getelementptr inbounds %helper_error_t, %helper_error_t* %helper_error_t3, i64 0, i32 3
+  store i8 0, i8* %15, align 4
   %pseudo4 = call i64 @llvm.bpf.pseudo(i64 1, i64 2)
-  %get_cpu_id5 = call i64 inttoptr (i64 8 to i64 ()*)()
-  %perf_event_output6 = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo4, i64 %get_cpu_id5, %helper_error_t* nonnull %helper_error_t3, i64 20)
-  call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %10)
+  %perf_event_output5 = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo4, i64 4294967295, %helper_error_t* nonnull %helper_error_t3, i64 21)
+  call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %11)
   br label %helper_merge
 
 helper_merge:                                     ; preds = %helper_failure, %lookup_merge
   call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %1)
-  call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %7)
+  call void @llvm.lifetime.end.p0i8(i64 -1, i8* nonnull %8)
   ret i64 0
 }
 

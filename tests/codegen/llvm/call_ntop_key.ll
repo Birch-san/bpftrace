@@ -18,7 +18,7 @@ entry:
   store i64 2, i64* %2, align 8
   %3 = getelementptr inbounds %inet_t, %inet_t* %inet, i64 0, i32 1
   %4 = getelementptr inbounds [16 x i8], [16 x i8]* %3, i64 0, i64 0
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 8 %4, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0i8.i64(i8* nonnull %4, i8 0, i64 16, i32 8, i1 false)
   %5 = bitcast [16 x i8]* %3 to i32*
   store i32 -1, i32* %5, align 8
   %pseudo = tail call i64 @llvm.bpf.pseudo(i64 1, i64 1)
@@ -48,7 +48,7 @@ lookup_merge:                                     ; preds = %entry, %lookup_succ
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1) #1
+declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
