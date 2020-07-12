@@ -68,12 +68,12 @@ void CodegenLLVM::visit(PositionalParameter &param)
 
 void CodegenLLVM::visit(String &string)
 {
+  size_t orig_len = string.str.size();
   string.str.resize(string.type.size-1);
-  Constant *const_str = ConstantDataArray::getString(module_->getContext(), string.str, true);
   int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
   CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
   b_.CreateZeroInit(ctx_, buf, bpftrace_.strlen_, string.loc);
-  b_.CreateStore(const_str, buf);
+  b_.CreateStoreConstStr(ctx_, orig_len, string, buf);
 
   expr_ = buf;
 }

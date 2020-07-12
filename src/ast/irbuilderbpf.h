@@ -96,6 +96,7 @@ public:
   AllocaInst *CreateUSym(llvm::Value *val);
   Value      *CreatKFuncArg(Value *ctx, SizedType& type, std::string& name);
   bool        IsValueMemsettable(Value *buf);
+  void        CreateStoreConstStr(Value *ctx, size_t strlen, const String &string, Value *buf);
   void        CreateCopy(Value *ctx, Value *dst, Value *src, size_t size, const location &loc);
   void        CreateZeroInit(Value *ctx, Value *dst, size_t size, const location &loc);
   int helper_error_id_ = 0;

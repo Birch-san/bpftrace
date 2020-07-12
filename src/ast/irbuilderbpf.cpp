@@ -1139,7 +1139,43 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
 }
 
 /**
- * LLVM outputs "A call to built-in function memcpy is not supported" if we
+ * LLVM outputs "A call to built-in function 'memset' is not supported" if we
+ * attempt any CreateStore() of a ConstantDataArray into a buffer larger than
+ * 1024 bytes.
+ */
+void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
+                                       [[maybe_unused]] size_t strlen,
+                                       const String &string,
+                                       Value *buf)
+{
+  // TODO: figure out what exactly the threshold offset is
+  if (string.str.size() > bpftrace_.memset_max_ - 16)
+  {
+    auto string_ptr = getInt64(reinterpret_cast<uintptr_t>(string.str.c_str()));
+    size_t bytes_len = string.str.size();
+    CreateProbeReadStr(
+        ctx,
+        buf,
+        bytes_len,
+        ConstantExpr::getCast(
+            Instruction::IntToPtr,
+            string_ptr,
+            PointerType::get(ArrayType::get(getInt8Ty(), bytes_len), 0)),
+        string.loc);
+  }
+  else
+  {
+    Constant *const_str = ConstantDataArray::getString(module_.getContext(),
+                                                       string.str,
+                                                       true);
+    // for large buffers, 1-byte alignment take tens of seconds, so align to
+    // word size
+    CreateAlignedStore(const_str, buf, sizeof(uint64_t));
+  }
+}
+
+/**
+ * LLVM outputs "A call to built-in function 'memcpy' is not supported" if we
  * attempt any memcpy greater than 1024 bytes. Beyond this size, we resort to
  * probe_read. This behaviour was observed when linking against LLVM 6.
  */
@@ -1160,12 +1196,12 @@ void IRBuilderBPF::CreateCopy(Value *ctx,
 }
 
 /**
- * LLVM outputs "A call to built-in function memset is not supported" if we
+ * LLVM outputs "A call to built-in function 'memset' is not supported" if we
  * attempt any memset greater than 1024 bytes. Beyond this size, we resort to
- * probe_read. This behaviour was observed when linking against LLVM 6. I did
- * try emitting smaller memsets in a (C++) loop, but these seemed to be
+ * probe_read. This behaviour was observed when linking against LLVM 6. Smaller
+ * memsets emitted in a (C++) loop were tried also, but these seemed to be
  * understood by LLVM as "one large memset", and were rejected. Same happened
- * when I tried CreateStores in a loop. We also need to figure out "is any of
+ * upon emitting CreateStores in a loop. We also need to figure out "is any of
  * this zero-initialization skippable"?
  * https://github.com/iovisor/bpftrace/issues/1392
  */
