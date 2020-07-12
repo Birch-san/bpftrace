@@ -1207,11 +1207,13 @@ void CodegenLLVM::visit(Ternary &ternary)
   BasicBlock *right_block = BasicBlock::Create(module_->getContext(), "right", parent);
   BasicBlock *done = BasicBlock::Create(module_->getContext(), "done", parent);
   // ordering of all the following statements is important
-  Value *result = ternary.type.IsNoneTy()
-                      ? nullptr
-                      : b_.CreateAllocaBPF(ternary.type, "result");
+  AllocaInst *result;
   CallInst *buf;
-  if (!ternary.type.IsNoneTy() && !ternary.type.IsIntTy())
+  if (ternary.type.IsIntTy())
+  {
+    result = b_.CreateAllocaBPF(ternary.type, "result");
+  }
+  else if (ternary.type.IsStringTy())
   {
     int key = bpftrace_.str_map_keys_[static_cast<Node *>(&ternary)];
     buf = b_.CreateGetStrMap(ctx_, key, ternary.loc);
@@ -1252,14 +1254,14 @@ void CodegenLLVM::visit(Ternary &ternary)
     // copy selected string via CreateMemCpy
     b_.SetInsertPoint(left_block);
     ternary.left->accept(*this);
-    b_.CREATE_MEMCPY(buf, expr_, ternary.type.size, 1);
+    b_.CreateCopy(ctx_, buf, expr_, ternary.type.size, ternary.left->loc);
     if (!ternary.left->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);
     b_.CreateBr(done);
 
     b_.SetInsertPoint(right_block);
     ternary.right->accept(*this);
-    b_.CREATE_MEMCPY(buf, expr_, ternary.type.size, 1);
+    b_.CreateCopy(ctx_, buf, expr_, ternary.type.size, ternary.right->loc);
     if (!ternary.right->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);
     b_.CreateBr(done);
