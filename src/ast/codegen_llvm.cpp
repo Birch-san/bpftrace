@@ -68,37 +68,41 @@ void CodegenLLVM::visit(PositionalParameter &param)
 
 void CodegenLLVM::visit(String &string)
 {
+  string.str.resize(string.type.size-1);
+  Constant *const_str = ConstantDataArray::getString(module_->getContext(), string.str, true);
   int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
   CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
+  b_.CreateStore(const_str, buf);
 
-  auto zeroed_area_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+  // auto zeroed_area_ptr = b_.getInt64(
+  //     reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
-  // zero it out first
-  b_.CreateProbeRead(
-      ctx_,
-      buf,
-      bpftrace_.strlen_,
-      ConstantExpr::getCast(Instruction::IntToPtr,
-                            zeroed_area_ptr,
-                            PointerType::get(ArrayType::get(b_.getInt8Ty(),
-                                                            bpftrace_.strlen_),
-                                             0)),
-      string.loc);
+  // // zero it out first
+  // b_.CreateProbeRead(
+  //     ctx_,
+  //     buf,
+  //     bpftrace_.strlen_,
+  //     ConstantExpr::getCast(Instruction::IntToPtr,
+  //                           zeroed_area_ptr,
+  //                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
+  //                                                           bpftrace_.strlen_),
+  //                                            0)),
+  //     string.loc);
+  // b_.CREATE_MEMSET(buf, b_.getInt8(0), bpftrace_.strlen_, 1);
 
-  auto string_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(string.str.c_str()));
+  // auto string_ptr = b_.getInt64(
+  //     reinterpret_cast<uintptr_t>(string.str.c_str()));
 
-  size_t bytes_len = string.str.size();
-  b_.CreateProbeReadStr(
-      ctx_,
-      buf,
-      bytes_len,
-      ConstantExpr::getCast(
-          Instruction::IntToPtr,
-          string_ptr,
-          PointerType::get(ArrayType::get(b_.getInt8Ty(), bytes_len), 0)),
-      string.loc);
+  // size_t bytes_len = string.str.size();
+  // b_.CreateProbeReadStr(
+  //     ctx_,
+  //     buf,
+  //     bytes_len,
+  //     ConstantExpr::getCast(
+  //         Instruction::IntToPtr,
+  //         string_ptr,
+  //         PointerType::get(ArrayType::get(b_.getInt8Ty(), bytes_len), 0)),
+  //     string.loc);
 
   expr_ = buf;
 }
@@ -514,8 +518,8 @@ void CodegenLLVM::visit(Call &call)
     int key = bpftrace_.str_map_keys_[static_cast<Node *>(&call)];
     CallInst *str_map = b_.CreateGetStrMap(ctx_, key, call.loc);
 
-    auto zeroed_area_ptr = b_.getInt64(
-        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+    // auto zeroed_area_ptr = b_.getInt64(
+    //     reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
     b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
@@ -537,16 +541,17 @@ void CodegenLLVM::visit(Call &call)
     }
     call.vargs->front()->accept(*this);
     // zero it out first
-    b_.CreateProbeRead(ctx_,
-                       str_map,
-                       bpftrace_.strlen_,
-                       ConstantExpr::getCast(
-                           Instruction::IntToPtr,
-                           zeroed_area_ptr,
-                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
-                                                           bpftrace_.strlen_),
-                                            0)),
-                       call.loc);
+    // b_.CreateProbeRead(ctx_,
+    //                    str_map,
+    //                    bpftrace_.strlen_,
+    //                    ConstantExpr::getCast(
+    //                        Instruction::IntToPtr,
+    //                        zeroed_area_ptr,
+    //                        PointerType::get(ArrayType::get(b_.getInt8Ty(),
+    //                                                        bpftrace_.strlen_),
+    //                                         0)),
+    //                    call.loc);
+    b_.CREATE_MEMSET(str_map, b_.getInt8(0), bpftrace_.strlen_, 1);
     b_.CreateProbeReadStr(
         ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
     b_.CreateLifetimeEnd(strlen);
@@ -2414,13 +2419,14 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   auto zeroed_area_ptr = b_.getInt64(
       reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
-  b_.CreateProbeRead(ctx_,
-                     fmt_args,
-                     struct_size,
-                     ConstantExpr::getCast(Instruction::IntToPtr,
-                                           zeroed_area_ptr,
-                                           fmt_struct_ptr_ty),
-                     call.loc);
+  // b_.CreateProbeRead(ctx_,
+  //                    fmt_args,
+  //                    struct_size,
+  //                    ConstantExpr::getCast(Instruction::IntToPtr,
+  //                                          zeroed_area_ptr,
+  //                                          fmt_struct_ptr_ty),
+  //                    call.loc);
+  b_.CREATE_MEMSET(fmt_args, b_.getInt8(0), struct_size, 1);
 
   Value *id_offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(0)});
   b_.CreateStore(b_.getInt64(id + asyncactionint(async_action)), id_offset);
