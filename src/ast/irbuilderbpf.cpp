@@ -774,11 +774,11 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
                                                      "strcmp.loop_null_cmp",
                                                      parent);
 
-    auto *ptr1 = CreateGEP(val1, getInt32(i));
+    auto *ptr1 = CreateGEP(val1, { getInt32(0), getInt32(i) });
     CreateProbeRead(ctx, val_l, 1, ptr1, loc);
     Value *l = CreateLoad(getInt8Ty(), val_l);
 
-    auto *ptr2 = CreateGEP(val2, getInt32(i));
+    auto *ptr2 = CreateGEP(val2, { getInt32(0), getInt32(i) });
     CreateProbeRead(ctx, val_r, 1, ptr2, loc);
     Value *r = CreateLoad(getInt8Ty(), val_r);
 
@@ -1138,23 +1138,66 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   SetInsertPoint(helper_merge_block);
 }
 
-void IRBuilderBPF::CreateCopy(Value *dst, Value *src, size_t size)
+/**
+ * LLVM outputs "A call to built-in function memcpy is not supported" if we
+ * attempt any memcpy greater than 1024 bytes. Beyond this size, we resort to
+ * probe_read. This behaviour was observed when linking against LLVM 6.
+ */
+void IRBuilderBPF::CreateCopy(Value *ctx,
+                              Value *dst,
+                              Value *src,
+                              size_t size,
+                              const location &loc)
 {
-  CREATE_MEMCPY(dst, src, size, sizeof(uint64_t));
+  if (size > bpftrace_.memset_max_)
+  {
+    CreateProbeRead(ctx, dst, size, src, loc);
+  }
+  else
+  {
+    CREATE_MEMCPY(dst, src, size, sizeof(uint64_t));
+  }
 }
 
-void IRBuilderBPF::CreateZeroInit(Value *dst, size_t size)
+/**
+ * LLVM outputs "A call to built-in function memset is not supported" if we
+ * attempt any memset greater than 1024 bytes. Beyond this size, we resort to
+ * probe_read. This behaviour was observed when linking against LLVM 6. I did
+ * try emitting smaller memsets in a (C++) loop, but these seemed to be
+ * understood by LLVM as "one large memset", and were rejected. Same happened
+ * when I tried CreateStores in a loop. We also need to figure out "is any of
+ * this zero-initialization skippable"?
+ * https://github.com/iovisor/bpftrace/issues/1392
+ */
+void IRBuilderBPF::CreateZeroInit(Value *ctx,
+                                  Value *dst,
+                                  size_t size,
+                                  const location &loc)
 {
-  // for (size_t i = 0; i < n; i++)
-  // {
-  //   b_.CreateStore(Select, strlen);
-  // }
-  if (size>512) {
-    CREATE_MEMSET(dst, getInt64(0), 512, sizeof(uint64_t));
-    // CREATE_MEMSET(CreateGEP(dst, { getInt32(0), getInt32(512) }), getInt64(0), size-512, sizeof(uint64_t));
-    // CREATE_MEMSET(CreateGEP(dst, getInt32(512)), getInt64(0), size-512, sizeof(uint64_t));
-    CREATE_MEMSET(CreateAdd(dst, getInt32(512)), getInt64(0), size-512, sizeof(uint64_t));
-  } else {
+  if (size > bpftrace_.memset_max_)
+  {
+    auto zeroed_area_ptr = getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+    CreateProbeRead(ctx,
+                    dst,
+                    size,
+                    ConstantExpr::getCast(
+                        Instruction::IntToPtr,
+                        zeroed_area_ptr,
+                        PointerType::get(ArrayType::get(getInt8Ty(), size), 0)),
+                    loc);
+  }
+  else
+  {
+    /*
+     * Aligning to 8-bytes generates fewer instructions. Non-8 multiples are
+     * fine too: memset breaks down the assignment into powers-of-two. For
+     * example, "zero out a 7-byte buffer, aligned to 8 bytes" becomes a 4,2,1
+     * assignment: r9 = 0
+     * *(u32 *)(r8 +0) = r9
+     * *(u16 *)(r8 +4) = r9
+     * *(u8 *)(r8 +6) = r9
+     */
     CREATE_MEMSET(dst, getInt64(0), size, sizeof(uint64_t));
   }
 }

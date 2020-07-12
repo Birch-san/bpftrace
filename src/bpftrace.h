@@ -177,6 +177,7 @@ public:
   BPFfeature feature_;
 
   uint64_t strlen_ = 64;
+  uint64_t memset_max_ = 1024;
   uint64_t mapmax_ = 4096;
   size_t cat_bytes_max_ = 10240;
   uint64_t max_probes_ = 512;
