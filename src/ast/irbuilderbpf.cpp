@@ -1138,5 +1138,26 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
   SetInsertPoint(helper_merge_block);
 }
 
+void IRBuilderBPF::CreateCopy(Value *dst, Value *src, size_t size)
+{
+  CREATE_MEMCPY(dst, src, size, sizeof(uint64_t));
+}
+
+void IRBuilderBPF::CreateZeroInit(Value *dst, size_t size)
+{
+  // for (size_t i = 0; i < n; i++)
+  // {
+  //   b_.CreateStore(Select, strlen);
+  // }
+  if (size>512) {
+    CREATE_MEMSET(dst, getInt64(0), 512, sizeof(uint64_t));
+    // CREATE_MEMSET(CreateGEP(dst, { getInt32(0), getInt32(512) }), getInt64(0), size-512, sizeof(uint64_t));
+    // CREATE_MEMSET(CreateGEP(dst, getInt32(512)), getInt64(0), size-512, sizeof(uint64_t));
+    CREATE_MEMSET(CreateAdd(dst, getInt32(512)), getInt64(0), size-512, sizeof(uint64_t));
+  } else {
+    CREATE_MEMSET(dst, getInt64(0), size, sizeof(uint64_t));
+  }
+}
+
 } // namespace ast
 } // namespace bpftrace

@@ -95,6 +95,8 @@ public:
   StructType *GetStructType(std::string name, const std::vector<llvm::Type *> & elements, bool packed = false);
   AllocaInst *CreateUSym(llvm::Value *val);
   Value      *CreatKFuncArg(Value *ctx, SizedType& type, std::string& name);
+  void        CreateCopy(Value *dst, Value *src, size_t size);
+  void        CreateZeroInit(Value *dst, size_t size);
   int helper_error_id_ = 0;
 
 private:

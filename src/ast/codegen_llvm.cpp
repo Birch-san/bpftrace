@@ -522,7 +522,8 @@ void CodegenLLVM::visit(Call &call)
     //     reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
 
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
-    b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
+    // b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
+    // b_.CreateZeroInit(strlen, sizeof(uint64_t));
     if (call.vargs->size() > 1) {
       call.vargs->at(1)->accept(*this);
       Value *proposed_strlen = b_.CreateAdd(expr_, b_.getInt64(1)); // add 1 to accommodate probe_read_str's null byte
@@ -551,7 +552,8 @@ void CodegenLLVM::visit(Call &call)
     //                                                        bpftrace_.strlen_),
     //                                         0)),
     //                    call.loc);
-    b_.CREATE_MEMSET(str_map, b_.getInt8(0), bpftrace_.strlen_, 1);
+    // b_.CREATE_MEMSET(str_map, b_.getInt8(0), bpftrace_.strlen_, 1);
+    // b_.CreateZeroInit(str_map, bpftrace_.strlen_);
     b_.CreateProbeReadStr(
         ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
     b_.CreateLifetimeEnd(strlen);
@@ -2426,7 +2428,8 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   //                                          zeroed_area_ptr,
   //                                          fmt_struct_ptr_ty),
   //                    call.loc);
-  b_.CREATE_MEMSET(fmt_args, b_.getInt8(0), struct_size, 1);
+  // b_.CREATE_MEMSET(fmt_args, b_.getInt8(0), struct_size, 1);
+  b_.CreateZeroInit(fmt_args, struct_size);
 
   Value *id_offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(0)});
   b_.CreateStore(b_.getInt64(id + asyncactionint(async_action)), id_offset);
@@ -2438,7 +2441,8 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
     if (arg.type.IsAggregate())
     {
-      b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      b_.CreateCopy(offset, expr_, arg.type.size);
+      // b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
       if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
         b_.CreateLifetimeEnd(expr_);
     }
