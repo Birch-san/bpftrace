@@ -192,7 +192,7 @@ public:
    *  1016 1       127*8
    *  1015 0
    *  1014 1       126*8 + 4 + 2
-   * (Everything below 1014 is fine)
+   * (Everything below 1014 succeeds, everything above 1024 fails)
    * LLVM is prepared to do up to 128 stores per memset. See MaxStoresPerMemset:
    * https://github.com/llvm-mirror/llvm/commit/4fe85c75482f9d11c5a1f92a1863ce30afad8d0d#diff-610120a7bf7f886681d540619f64ea23R169-R171
    * LLVM backend supports store instructions of size 8, 4, 2, or 1. (BPF only

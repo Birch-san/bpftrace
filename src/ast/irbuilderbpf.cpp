@@ -1158,7 +1158,7 @@ void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
     size_t bytes_len = string.size();
     /*
      * probe_read_str is probably slower (checks for null bytes to attempt
-     * early-exit). it should be safe to use probe_read instead, since we know
+     * early-exit). It should be safe to use probe_read instead, since we know
      * the length exactly, we know that we've zero-initialised the buffer, and
      * we know we've truncated our string input to ensure we'll still have a
      * null byte at the end of this.
