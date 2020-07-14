@@ -1141,33 +1141,42 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
 /**
  * LLVM outputs "A call to built-in function 'memset' is not supported" if we
  * attempt any CreateStore() of a ConstantDataArray into a buffer larger than
- * 1024 bytes.
+ * 1014 bytes.
  */
 void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
-                                       [[maybe_unused]] size_t strlen,
-                                       const String &string,
-                                       Value *buf)
+                                       std::string_view string,
+                                       Value *buf,
+                                       const location &loc)
 {
-  // TODO: figure out what exactly the threshold offset is
-  if (string.str.size() > bpftrace_.memset_max_ - 16)
+  if (string.empty())
   {
-    auto string_ptr = getInt64(reinterpret_cast<uintptr_t>(string.str.c_str()));
-    size_t bytes_len = string.str.size();
-    CreateProbeReadStr(
-        ctx,
-        buf,
-        bytes_len,
-        ConstantExpr::getCast(
-            Instruction::IntToPtr,
-            string_ptr,
-            PointerType::get(ArrayType::get(getInt8Ty(), bytes_len), 0)),
-        string.loc);
+    return;
+  }
+  if (string.size() > bpftrace_.memset_max_)
+  {
+    auto string_ptr = getInt64(reinterpret_cast<uintptr_t>(string.data()));
+    size_t bytes_len = string.size();
+    /*
+     * probe_read_str is probably slower (checks for null bytes to attempt
+     * early-exit). it should be safe to use probe_read instead, since we know
+     * the length exactly, we know that we've zero-initialised the buffer, and
+     * we know we've truncated our string input to ensure we'll still have a
+     * null byte at the end of this.
+     */
+    CreateProbeRead(ctx,
+                    buf,
+                    bytes_len,
+                    ConstantExpr::getCast(
+                        Instruction::IntToPtr,
+                        string_ptr,
+                        PointerType::get(ArrayType::get(getInt8Ty(), bytes_len),
+                                         0)),
+                    loc);
   }
   else
   {
-    Constant *const_str = ConstantDataArray::getString(module_.getContext(),
-                                                       string.str,
-                                                       true);
+    Constant *const_str = ConstantDataArray::getString(
+        module_.getContext(), { string.data(), string.size() }, true);
     // for large buffers, 1-byte alignment take tens of seconds, so align to
     // word size
     CreateAlignedStore(const_str, buf, sizeof(uint64_t));
@@ -1176,7 +1185,7 @@ void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
 
 /**
  * LLVM outputs "A call to built-in function 'memcpy' is not supported" if we
- * attempt any memcpy greater than 1024 bytes. Beyond this size, we resort to
+ * attempt a memcpy greater than 1014 bytes. Beyond this size, we resort to
  * probe_read. This behaviour was observed when linking against LLVM 6.
  */
 void IRBuilderBPF::CreateCopy(Value *ctx,
@@ -1197,7 +1206,7 @@ void IRBuilderBPF::CreateCopy(Value *ctx,
 
 /**
  * LLVM outputs "A call to built-in function 'memset' is not supported" if we
- * attempt any memset greater than 1024 bytes. Beyond this size, we resort to
+ * attempt a memset greater than 1014 bytes. Beyond this size, we resort to
  * probe_read. This behaviour was observed when linking against LLVM 6. Smaller
  * memsets emitted in a (C++) loop were tried also, but these seemed to be
  * understood by LLVM as "one large memset", and were rejected. Same happened

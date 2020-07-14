@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <csignal>
 #include <ctime>
+#include <string_view>
 
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/IR/Constants.h>
@@ -68,12 +69,13 @@ void CodegenLLVM::visit(PositionalParameter &param)
 
 void CodegenLLVM::visit(String &string)
 {
-  size_t orig_len = string.str.size();
-  string.str.resize(string.type.size-1);
   int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
   CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
   b_.CreateZeroInit(ctx_, buf, bpftrace_.strlen_, string.loc);
-  b_.CreateStoreConstStr(ctx_, orig_len, string, buf);
+  size_t space_for_null_len = std::min<size_t>(string.str.size(),
+                                               string.type.size - 1);
+  std::string_view shorter_str = { string.str.data(), space_for_null_len };
+  b_.CreateStoreConstStr(ctx_, shorter_str, buf, string.loc);
 
   expr_ = buf;
 }
