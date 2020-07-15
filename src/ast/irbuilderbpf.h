@@ -4,6 +4,7 @@
 #include "bpftrace.h"
 #include "types.h"
 #include <bcc/bcc_usdt.h>
+#include <string_view>
 
 #include <llvm/Config/llvm-config.h>
 #include <llvm/IR/IRBuilder.h>
@@ -95,6 +96,9 @@ public:
   StructType *GetStructType(std::string name, const std::vector<llvm::Type *> & elements, bool packed = false);
   AllocaInst *CreateUSym(llvm::Value *val);
   Value      *CreatKFuncArg(Value *ctx, SizedType& type, std::string& name);
+  void        CreateStoreConstStr(Value *ctx, std::string_view string, Value *buf, const location &loc);
+  void        CreateCopy(Value *ctx, Value *dst, Value *src, size_t size, const location &loc);
+  void        CreateZeroInit(Value *ctx, Value *dst, size_t size, const location &loc);
   int helper_error_id_ = 0;
 
 private:

@@ -775,11 +775,11 @@ Value *IRBuilderBPF::CreateStrncmp(Value *ctx,
                                                      "strcmp.loop_null_cmp",
                                                      parent);
 
-    auto *ptr1 = CreateGEP(val1, getInt32(i));
+    auto *ptr1 = CreateGEP(val1, { getInt32(0), getInt32(i) });
     CreateProbeRead(ctx, val_l, 1, ptr1, loc);
     Value *l = CreateLoad(getInt8Ty(), val_l);
 
-    auto *ptr2 = CreateGEP(val2, getInt32(i));
+    auto *ptr2 = CreateGEP(val2, { getInt32(0), getInt32(i) });
     CreateProbeRead(ctx, val_r, 1, ptr2, loc);
     Value *r = CreateLoad(getInt8Ty(), val_r);
 
@@ -1137,6 +1137,115 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
     CreateBr(helper_merge_block);
   }
   SetInsertPoint(helper_merge_block);
+}
+
+/**
+ * LLVM outputs "A call to built-in function 'memset' is not supported" if we
+ * attempt any CreateStore() of a ConstantDataArray into a buffer larger than
+ * 1014 bytes.
+ */
+void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
+                                       std::string_view string,
+                                       Value *buf,
+                                       const location &loc)
+{
+  if (string.empty())
+  {
+    return;
+  }
+  if (string.size() > bpftrace_.memset_max_)
+  {
+    auto string_ptr = getInt64(reinterpret_cast<uintptr_t>(string.data()));
+    size_t bytes_len = string.size();
+    /*
+     * probe_read_str is probably slower (checks for null bytes to attempt
+     * early-exit). It should be safe to use probe_read instead, since we know
+     * the length exactly, we know that we've zero-initialised the buffer, and
+     * we know we've truncated our string input to ensure we'll still have a
+     * null byte at the end of this.
+     */
+    CreateProbeRead(ctx,
+                    buf,
+                    bytes_len,
+                    ConstantExpr::getCast(
+                        Instruction::IntToPtr,
+                        string_ptr,
+                        PointerType::get(ArrayType::get(getInt8Ty(), bytes_len),
+                                         0)),
+                    loc);
+  }
+  else
+  {
+    Constant *const_str = ConstantDataArray::getString(
+        module_.getContext(), { string.data(), string.size() }, true);
+    // for large buffers, 1-byte alignment take tens of seconds, so align to
+    // word size
+    CreateAlignedStore(const_str, buf, sizeof(uint64_t));
+  }
+}
+
+/**
+ * LLVM outputs "A call to built-in function 'memcpy' is not supported" if we
+ * attempt a memcpy greater than 1014 bytes. Beyond this size, we resort to
+ * probe_read. This behaviour was observed when linking against LLVM 6.
+ */
+void IRBuilderBPF::CreateCopy(Value *ctx,
+                              Value *dst,
+                              Value *src,
+                              size_t size,
+                              const location &loc)
+{
+  if (size > bpftrace_.memset_max_)
+  {
+    CreateProbeRead(ctx, dst, size, src, loc);
+  }
+  else
+  {
+    CREATE_MEMCPY(dst, src, size, sizeof(uint64_t));
+  }
+}
+
+/**
+ * LLVM outputs "A call to built-in function 'memset' is not supported" if we
+ * attempt a memset greater than 1014 bytes. Beyond this size, we resort to
+ * probe_read. This behaviour was observed when linking against LLVM 6. Smaller
+ * memsets emitted in a (C++) loop were tried also, but these seemed to be
+ * understood by LLVM as "one large memset", and were rejected. Same happened
+ * upon emitting CreateStores in a loop. We also need to figure out "is any of
+ * this zero-initialization skippable"?
+ * https://github.com/iovisor/bpftrace/issues/1392
+ */
+void IRBuilderBPF::CreateZeroInit(Value *ctx,
+                                  Value *dst,
+                                  size_t size,
+                                  const location &loc)
+{
+  if (size > bpftrace_.memset_max_)
+  {
+    auto zeroed_area_ptr = getInt64(
+        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
+    CreateProbeRead(ctx,
+                    dst,
+                    size,
+                    ConstantExpr::getCast(
+                        Instruction::IntToPtr,
+                        zeroed_area_ptr,
+                        PointerType::get(ArrayType::get(getInt8Ty(), size), 0)),
+                    loc);
+  }
+  else
+  {
+    /*
+     * Aligning to 8-bytes generates fewer instructions. Non-8 multiples are
+     * fine too: memset breaks down the assignment into powers-of-two. For
+     * example, "zero out a 7-byte buffer, aligned to 8 bytes" becomes a 4,2,1
+     * assignment: r9 = 0
+     * *(u32 *)(r8 +0) = r9
+     * *(u16 *)(r8 +4) = r9
+     * *(u8 *)(r8 +6) = r9
+     */
+    CREATE_MEMSET(dst, getInt64(0), size, sizeof(uint64_t));
+  }
 }
 
 } // namespace ast

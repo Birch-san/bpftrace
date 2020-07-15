@@ -179,6 +179,32 @@ public:
   BPFfeature feature_;
 
   uint64_t strlen_ = 64;
+  /*
+   * Limits of "what's the largest memset we can do" were measured,
+   * linking against LLVM 6 libs, with memsets aligned to 8 bytes:
+   * BYTES OUTCOME STORES_EMITTED
+   *  1024 1       128*8
+   *  1023 0
+   *  1022 0
+   *  1021 0
+   *  1020 1       127*8 + 4
+   *  1019 0
+   *  1018 1       127*8 + 2
+   *  1017 1       127*8 + 1
+   *  1016 1       127*8
+   *  1015 0
+   *  1014 1       126*8 + 4 + 2
+   * (Everything below 1014 succeeds, everything above 1024 fails)
+   * LLVM is prepared to do up to 128 stores per memset. See MaxStoresPerMemset:
+   * https://github.com/llvm-mirror/llvm/commit/4fe85c75482f9d11c5a1f92a1863ce30afad8d0d#diff-610120a7bf7f886681d540619f64ea23R169-R171
+   * LLVM backend supports store instructions of size 8, 4, 2, or 1. (BPF only
+   * supports 8 and 4, so LLVM truncates). Codegen gets pretty slow at such
+   * sizes, so we probably wouldn't benefit from tuning MaxStoresPerMemset. This
+   * can be tested easily with either of the following programs: sudo
+   * BPFTRACE_STRLEN=1014 bpftrace -e 'BEGIN { ""; exit(); }' sudo
+   * BPFTRACE_STRLEN=1014 bpftrace -e 'BEGIN { str(0); exit(); }'
+   */
+  uint64_t memset_max_ = 1014;
   uint64_t mapmax_ = 4096;
   size_t cat_bytes_max_ = 10240;
   uint64_t max_probes_ = 512;

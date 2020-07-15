@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <csignal>
 #include <ctime>
+#include <string_view>
 
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/IR/Constants.h>
@@ -91,35 +92,11 @@ void CodegenLLVM::visit(String &string)
 {
   int key = bpftrace_.str_map_keys_[static_cast<Node *>(&string)];
   CallInst *buf = b_.CreateGetStrMap(ctx_, key, string.loc);
-
-  auto zeroed_area_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-  // zero it out first
-  b_.CreateProbeRead(
-      ctx_,
-      buf,
-      bpftrace_.strlen_,
-      ConstantExpr::getCast(Instruction::IntToPtr,
-                            zeroed_area_ptr,
-                            PointerType::get(ArrayType::get(b_.getInt8Ty(),
-                                                            bpftrace_.strlen_),
-                                             0)),
-      string.loc);
-
-  auto string_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(string.str.c_str()));
-
-  size_t bytes_len = string.str.size();
-  b_.CreateProbeReadStr(
-      ctx_,
-      buf,
-      bytes_len,
-      ConstantExpr::getCast(
-          Instruction::IntToPtr,
-          string_ptr,
-          PointerType::get(ArrayType::get(b_.getInt8Ty(), bytes_len), 0)),
-      string.loc);
+  b_.CreateZeroInit(ctx_, buf, bpftrace_.strlen_, string.loc);
+  size_t space_for_null_len = std::min<size_t>(string.str.size(),
+                                               string.type.size - 1);
+  std::string_view shorter_str = { string.str.data(), space_for_null_len };
+  b_.CreateStoreConstStr(ctx_, shorter_str, buf, string.loc);
 
   expr_ = buf;
 }
@@ -535,12 +512,9 @@ void CodegenLLVM::visit(Call &call)
     int key = bpftrace_.str_map_keys_[static_cast<Node *>(&call)];
     CallInst *str_map = b_.CreateGetStrMap(ctx_, key, call.loc);
 
-    auto zeroed_area_ptr = b_.getInt64(
-        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
     AllocaInst *strlen = b_.CreateAllocaBPF(b_.getInt64Ty(), "strlen");
-    b_.CREATE_MEMSET(strlen, b_.getInt8(0), sizeof(uint64_t), 1);
     if (call.vargs->size() > 1) {
+      b_.CreateStore(b_.getInt64(0), strlen);
       call.vargs->at(1)->accept(*this);
       Value *proposed_strlen = b_.CreateAdd(expr_, b_.getInt64(1)); // add 1 to accommodate probe_read_str's null byte
 
@@ -557,17 +531,7 @@ void CodegenLLVM::visit(Call &call)
       b_.CreateStore(b_.getInt64(bpftrace_.strlen_), strlen);
     }
     call.vargs->front()->accept(*this);
-    // zero it out first
-    b_.CreateProbeRead(ctx_,
-                       str_map,
-                       bpftrace_.strlen_,
-                       ConstantExpr::getCast(
-                           Instruction::IntToPtr,
-                           zeroed_area_ptr,
-                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
-                                                           bpftrace_.strlen_),
-                                            0)),
-                       call.loc);
+    b_.CreateZeroInit(ctx_, str_map, bpftrace_.strlen_, call.loc);
     b_.CreateProbeReadStr(
         ctx_, str_map, b_.CreateLoad(strlen), expr_, call.loc);
     b_.CreateLifetimeEnd(strlen);
@@ -613,18 +577,7 @@ void CodegenLLVM::visit(Call &call)
     auto buf_struct_ptr_ty = PointerType::get(buf_struct, 0);
     int key = bpftrace_.buf_map_keys_[static_cast<Node *>(&call)];
     CallInst *buf = b_.CreateGetBufMap(ctx_, key, buf_struct_ptr_ty, call.loc);
-
-    auto zeroed_area_ptr = b_.getInt64(
-        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-    // zero it out first
-    b_.CreateProbeRead(ctx_,
-                       buf,
-                       struct_size,
-                       ConstantExpr::getCast(Instruction::IntToPtr,
-                                             zeroed_area_ptr,
-                                             buf_struct_ptr_ty),
-                       call.loc);
+    b_.CreateZeroInit(ctx_, buf, struct_size, call.loc);
 
     Value *buf_len_offset = b_.CreateGEP(buf,
                                          { b_.getInt32(0), b_.getInt32(0) });
@@ -633,10 +586,6 @@ void CodegenLLVM::visit(Call &call)
 
     Value *buf_data_offset = b_.CreateGEP(buf,
                                           { b_.getInt32(0), b_.getInt32(1) });
-    b_.CREATE_MEMSET(buf_data_offset,
-                     b_.GetIntSameSize(0, elements.at(0)),
-                     fixed_buffer_length,
-                     1);
 
     call.vargs->front()->accept(*this);
     b_.CreateProbeRead(ctx_, buf_data_offset, length, expr_, call.loc);
@@ -977,7 +926,6 @@ void CodegenLLVM::visit(Call &call)
       Value *right_string = expr_;
       left_arg->accept(*this);
       Value *left_string = expr_;
-
       expr_ = b_.CreateStrncmp(
           ctx_, left_string, right_string, size, call.loc, false);
       if (!left_arg->is_variable && dyn_cast<AllocaInst>(left_string))
@@ -1304,28 +1252,17 @@ void CodegenLLVM::visit(Ternary &ternary)
   BasicBlock *right_block = BasicBlock::Create(module_->getContext(), "right", parent);
   BasicBlock *done = BasicBlock::Create(module_->getContext(), "done", parent);
   // ordering of all the following statements is important
-  Value *result = ternary.type.IsNoneTy()
-                      ? nullptr
-                      : b_.CreateAllocaBPF(ternary.type, "result");
+  AllocaInst *result;
   CallInst *buf;
-  if (!ternary.type.IsNoneTy() && !ternary.type.IsIntTy())
+  if (ternary.type.IsIntTy())
+  {
+    result = b_.CreateAllocaBPF(ternary.type, "result");
+  }
+  else if (ternary.type.IsStringTy())
   {
     int key = bpftrace_.str_map_keys_[static_cast<Node *>(&ternary)];
     buf = b_.CreateGetStrMap(ctx_, key, ternary.loc);
-    auto zeroed_area_ptr = b_.getInt64(
-        reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-    // zero it out first
-    b_.CreateProbeRead(ctx_,
-                       buf,
-                       bpftrace_.strlen_,
-                       ConstantExpr::getCast(
-                           Instruction::IntToPtr,
-                           zeroed_area_ptr,
-                           PointerType::get(ArrayType::get(b_.getInt8Ty(),
-                                                           bpftrace_.strlen_),
-                                            0)),
-                       ternary.loc);
+    b_.CreateZeroInit(ctx_, buf, bpftrace_.strlen_, ternary.loc);
   }
   Value *cond;
   ternary.cond->accept(*this);
@@ -1362,14 +1299,14 @@ void CodegenLLVM::visit(Ternary &ternary)
     // copy selected string via CreateMemCpy
     b_.SetInsertPoint(left_block);
     ternary.left->accept(*this);
-    b_.CREATE_MEMCPY(buf, expr_, ternary.type.size, 1);
+    b_.CreateCopy(ctx_, buf, expr_, ternary.type.size, ternary.left->loc);
     if (!ternary.left->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);
     b_.CreateBr(done);
 
     b_.SetInsertPoint(right_block);
     ternary.right->accept(*this);
-    b_.CREATE_MEMCPY(buf, expr_, ternary.type.size, 1);
+    b_.CreateCopy(ctx_, buf, expr_, ternary.type.size, ternary.right->loc);
     if (!ternary.right->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);
     b_.CreateBr(done);
@@ -1680,18 +1617,7 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
     if (var.type.IsAggregate())
     {
       val = b_.CreateGetVarMap(ctx_, var, assignment.loc);
-      llvm::Type *type = b_.GetType(var.type);
-      auto zeroed_area_ptr = b_.getInt64(
-          reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-      // zero it out first
-      b_.CreateProbeRead(ctx_,
-                         val,
-                         var.type.size,
-                         ConstantExpr::getCast(Instruction::IntToPtr,
-                                               zeroed_area_ptr,
-                                               PointerType::get(type, 0)),
-                         assignment.loc);
+      b_.CreateZeroInit(ctx_, val, var.type.size, assignment.loc);
     }
     else
     {
@@ -1702,7 +1628,8 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
 
   if (needMemcpy(var.type))
   {
-    b_.CREATE_MEMCPY(variables_[var.ident], expr_, var.type.size, 1);
+    b_.CreateCopy(
+        ctx_, variables_[var.ident], expr_, var.type.size, assignment.loc);
     if (!assignment.expr->is_variable && dyn_cast<AllocaInst>(expr_))
       b_.CreateLifetimeEnd(expr_);
   }
@@ -2118,17 +2045,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
         auto [node_ptr, buffer_key] = *buffer_key_iter;
         auto key_struct_ptr_ty = PointerType::get(key_struct, 0);
         key = b_.CreateGetKeyMap(ctx_, buffer_key, key_struct_ptr_ty, map.loc);
-        auto zeroed_area_ptr = b_.getInt64(
-            reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-        // zero it out first
-        b_.CreateProbeRead(ctx_,
-                           key,
-                           struct_size,
-                           ConstantExpr::getCast(Instruction::IntToPtr,
-                                                 zeroed_area_ptr,
-                                                 key_struct_ptr_ty),
-                           map.loc);
+        b_.CreateZeroInit(ctx_, key, struct_size, map.loc);
       }
 
       size_t offset = 0;
@@ -2141,7 +2058,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
 
         if (shouldBeOnStackAlready(expr->type))
         {
-          b_.CREATE_MEMCPY(offset_val, expr_, expr->type.size, 1);
+          b_.CreateCopy(ctx_, offset_val, expr_, expr->type.size, expr->loc);
           if (!expr->is_variable && dyn_cast<AllocaInst>(expr_))
             b_.CreateLifetimeEnd(expr_);
         }
@@ -2454,12 +2371,28 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
    */
   std::vector<llvm::Type *> elements = { b_.getInt64Ty() }; // ID
 
+  /*
+   * If there are big strings in this struct, it may become so large as to
+   * exceed the 1014 byte memset limit (beyond which we're forced to use an
+   * expensive probe_read). We can sneak under this limit by initializing
+   * member-by-member. Ordinarily "lots of small memsets" would be optimized
+   * into "one big disallowed memset", but we seem to get away with it here.
+   */
+  int probe_reads_required_for_struct_init = 0;
+  int probe_reads_required_for_memberwise_init = 0;
   auto &args = std::get<1>(call_args.at(id));
   for (Field &arg : args)
   {
     llvm::Type *ty = b_.GetType(arg.type);
     elements.push_back(ty);
+    if (arg.type.size > bpftrace_.memset_max_)
+    {
+      probe_reads_required_for_struct_init = 1;
+      probe_reads_required_for_memberwise_init++;
+    }
   }
+  bool use_memberwise_init = probe_reads_required_for_struct_init >
+                             probe_reads_required_for_memberwise_init;
   StructType *fmt_struct = StructType::create(elements, call_name + "_t", true);
   int struct_size = layout_.getTypeAllocSize(fmt_struct);
 
@@ -2473,16 +2406,10 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   auto fmt_struct_ptr_ty = PointerType::get(fmt_struct, 0);
   Value *fmt_args = b_.CreateGetFmtStrMap(ctx_, fmt_struct_ptr_ty, call.loc);
 
-  auto zeroed_area_ptr = b_.getInt64(
-      reinterpret_cast<uintptr_t>(bpftrace_.zero_buffer_->data()));
-
-  b_.CreateProbeRead(ctx_,
-                     fmt_args,
-                     struct_size,
-                     ConstantExpr::getCast(Instruction::IntToPtr,
-                                           zeroed_area_ptr,
-                                           fmt_struct_ptr_ty),
-                     call.loc);
+  if (!use_memberwise_init)
+  {
+    b_.CreateZeroInit(ctx_, fmt_args, struct_size, call.loc);
+  }
 
   Value *id_offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(0)});
   b_.CreateStore(b_.getInt64(id + asyncactionint(async_action)), id_offset);
@@ -2492,9 +2419,13 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
     expr_deleter_ = nullptr;
     arg.accept(*this);
     Value *offset = b_.CreateGEP(fmt_args, {b_.getInt32(0), b_.getInt32(i)});
+    if (use_memberwise_init)
+    {
+      b_.CreateZeroInit(ctx_, offset, arg.type.size, arg.loc);
+    }
     if (needMemcpy(arg.type))
     {
-      b_.CREATE_MEMCPY(offset, expr_, arg.type.size, 1);
+      b_.CreateCopy(ctx_, offset, expr_, arg.type.size, arg.loc);
       if (!arg.is_variable && dyn_cast<AllocaInst>(expr_))
         b_.CreateLifetimeEnd(expr_);
     }
