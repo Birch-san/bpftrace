@@ -2393,7 +2393,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
   }
   bool use_memberwise_init = probe_reads_required_for_struct_init >
                              probe_reads_required_for_memberwise_init;
-  StructType *fmt_struct = StructType::create(elements, call_name + "_t", true);
+  StructType *fmt_struct = StructType::create(elements, call_name + "_t", false);
   int struct_size = layout_.getTypeAllocSize(fmt_struct);
 
   auto *struct_layout = layout_.getStructLayout(fmt_struct);
