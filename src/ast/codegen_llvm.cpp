@@ -2042,7 +2042,7 @@ std::tuple<Value *, std::function<void(Value *)>> CodegenLLVM::getMapKey(
       }
       else
       {
-        auto [node_ptr, buffer_key] = *buffer_key_iter;
+        [[maybe_unused]] auto [node_ptr, buffer_key] = *buffer_key_iter;
         auto key_struct_ptr_ty = PointerType::get(key_struct, 0);
         key = b_.CreateGetKeyMap(ctx_, buffer_key, key_struct_ptr_ty, map.loc);
         b_.CreateZeroInit(ctx_, key, struct_size, map.loc);
