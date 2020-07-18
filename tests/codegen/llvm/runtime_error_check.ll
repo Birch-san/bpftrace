@@ -3,7 +3,7 @@ source_filename = "bpftrace"
 target datalayout = "e-m:e-p:64:64-i64:64-n32:64-S128"
 target triple = "bpf-pc-linux"
 
-%helper_error_t = type <{ i64, i64, i32 }>
+%helper_error_t = type <{ i64, i64, i32, i8 }>
 
 ; Function Attrs: nounwind
 declare i64 @llvm.bpf.pseudo(i64, i64) #0
@@ -55,18 +55,19 @@ helper_failure:                                   ; preds = %lookup_merge
   store i64 0, i64* %11
   %12 = getelementptr %helper_error_t, %helper_error_t* %helper_error_t, i64 0, i32 2
   store i32 %7, i32* %12
+  %13 = getelementptr %helper_error_t, %helper_error_t* %helper_error_t, i64 0, i32 3
+  store i8 0, i8* %13
   %pseudo2 = call i64 @llvm.bpf.pseudo(i64 1, i64 2)
-  %get_cpu_id = call i64 inttoptr (i64 8 to i64 ()*)()
-  %perf_event_output = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo2, i64 %get_cpu_id, %helper_error_t* %helper_error_t, i64 20)
-  %13 = bitcast %helper_error_t* %helper_error_t to i8*
-  call void @llvm.lifetime.end.p0i8(i64 -1, i8* %13)
+  %perf_event_output = call i64 inttoptr (i64 25 to i64 (i8*, i64, i64, %helper_error_t*, i64)*)(i8* %0, i64 %pseudo2, i64 4294967295, %helper_error_t* %helper_error_t, i64 21)
+  %14 = bitcast %helper_error_t* %helper_error_t to i8*
+  call void @llvm.lifetime.end.p0i8(i64 -1, i8* %14)
   br label %helper_merge
 
 helper_merge:                                     ; preds = %helper_failure, %lookup_merge
-  %14 = bitcast i64* %"@_key" to i8*
-  call void @llvm.lifetime.end.p0i8(i64 -1, i8* %14)
-  %15 = bitcast i64* %"@_newval" to i8*
+  %15 = bitcast i64* %"@_key" to i8*
   call void @llvm.lifetime.end.p0i8(i64 -1, i8* %15)
+  %16 = bitcast i64* %"@_newval" to i8*
+  call void @llvm.lifetime.end.p0i8(i64 -1, i8* %16)
   ret i64 0
 }
 

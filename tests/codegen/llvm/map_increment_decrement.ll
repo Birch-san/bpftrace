@@ -20,14 +20,14 @@ entry:
   %"@x_newval" = alloca i64
   %lookup_elem_val = alloca i64
   %"@x_key1" = alloca i64
-  %"@x_val" = alloca i64
   %"@x_key" = alloca i64
-  %1 = bitcast i64* %"@x_key" to i8*
+  %"@x_val" = alloca i64
+  %1 = bitcast i64* %"@x_val" to i8*
   call void @llvm.lifetime.start.p0i8(i64 -1, i8* %1)
-  store i64 0, i64* %"@x_key"
-  %2 = bitcast i64* %"@x_val" to i8*
-  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %2)
   store i64 10, i64* %"@x_val"
+  %2 = bitcast i64* %"@x_key" to i8*
+  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %2)
+  store i64 0, i64* %"@x_key"
   %pseudo = call i64 @llvm.bpf.pseudo(i64 1, i64 1)
   %update_elem = call i64 inttoptr (i64 2 to i64 (i64, i64*, i64*, i64)*)(i64 %pseudo, i64* %"@x_key", i64* %"@x_val", i64 0)
   %3 = bitcast i64* %"@x_key" to i8*

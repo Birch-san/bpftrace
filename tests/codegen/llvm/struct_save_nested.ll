@@ -8,8 +8,8 @@ declare i64 @llvm.bpf.pseudo(i64, i64) #0
 
 define i64 @"kprobe:f"(i8*) section "s_kprobe:f_1" {
 entry:
-  %"@x_val" = alloca i64
   %"@x_key" = alloca i64
+  %"@x_val" = alloca i64
   %"internal_struct Foo.bar13" = alloca [8 x i8]
   %lookup_elem_val11 = alloca [16 x i8]
   %"@foo_key5" = alloca i64
@@ -17,14 +17,14 @@ entry:
   %"internal_struct Foo.bar" = alloca [8 x i8]
   %lookup_elem_val = alloca [16 x i8]
   %"@foo_key1" = alloca i64
-  %"@foo_val" = alloca [16 x i8]
   %"@foo_key" = alloca i64
-  %1 = bitcast i64* %"@foo_key" to i8*
+  %"@foo_val" = alloca [16 x i8]
+  %1 = bitcast [16 x i8]* %"@foo_val" to i8*
   call void @llvm.lifetime.start.p0i8(i64 -1, i8* %1)
-  store i64 0, i64* %"@foo_key"
-  %2 = bitcast [16 x i8]* %"@foo_val" to i8*
-  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %2)
   %probe_read = call i64 inttoptr (i64 4 to i64 ([16 x i8]*, i32, i64)*)([16 x i8]* %"@foo_val", i32 16, i64 0)
+  %2 = bitcast i64* %"@foo_key" to i8*
+  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %2)
+  store i64 0, i64* %"@foo_key"
   %pseudo = call i64 @llvm.bpf.pseudo(i64 1, i64 2)
   %update_elem = call i64 inttoptr (i64 2 to i64 (i64, i64*, [16 x i8]*, i64)*)(i64 %pseudo, i64* %"@foo_key", [16 x i8]* %"@foo_val", i64 0)
   %3 = bitcast i64* %"@foo_key" to i8*
@@ -98,13 +98,13 @@ lookup_merge10:                                   ; preds = %lookup_failure9, %l
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %23, i8* align 1 %21, i64 8, i1 false)
   %24 = getelementptr [8 x i8], [8 x i8]* %"internal_struct Foo.bar13", i64 0, i64 0
   %25 = load i32, i8* %24
-  %26 = bitcast i64* %"@x_key" to i8*
-  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %26)
-  store i64 0, i64* %"@x_key"
-  %27 = sext i32 %25 to i64
-  %28 = bitcast i64* %"@x_val" to i8*
+  %26 = sext i32 %25 to i64
+  %27 = bitcast i64* %"@x_val" to i8*
+  call void @llvm.lifetime.start.p0i8(i64 -1, i8* %27)
+  store i64 %26, i64* %"@x_val"
+  %28 = bitcast i64* %"@x_key" to i8*
   call void @llvm.lifetime.start.p0i8(i64 -1, i8* %28)
-  store i64 %27, i64* %"@x_val"
+  store i64 0, i64* %"@x_key"
   %pseudo14 = call i64 @llvm.bpf.pseudo(i64 1, i64 3)
   %update_elem15 = call i64 inttoptr (i64 2 to i64 (i64, i64*, i64*, i64)*)(i64 %pseudo14, i64* %"@x_key", i64* %"@x_val", i64 0)
   %29 = bitcast i64* %"@x_key" to i8*
