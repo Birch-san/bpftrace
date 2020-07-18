@@ -1701,7 +1701,7 @@ std::string BPFtrace::resolve_timestamp(uint32_t strftime_id,
     return "(?)";
   }
   auto fmt = strftime_args_[strftime_id].c_str();
-  char timestr[STRING_SIZE];
+  char timestr[strlen_];
   struct tm tmp;
   time_t time = btime + nsecs_since_boot / 1e9;
   if (!localtime_r(&time, &tmp))
