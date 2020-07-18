@@ -1614,7 +1614,7 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
   if (variables_.find(var.ident) == variables_.end())
   {
     Value *val;
-    if (var.type.IsAggregate())
+    if (needMemcpy(var.type))
     {
       val = b_.CreateGetVarMap(ctx_, var, assignment.loc);
       b_.CreateZeroInit(ctx_, val, var.type.size, assignment.loc);
