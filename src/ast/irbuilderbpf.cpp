@@ -267,6 +267,7 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   CreateStore(getInt32(key), keyAlloca);
 
   CallInst *call = createMapLookup(map_fd, keyAlloca, ptr_ty, name);
+  CreateLifetimeEnd(keyAlloca);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
