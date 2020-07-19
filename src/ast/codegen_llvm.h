@@ -52,7 +52,6 @@ public:
   void visit(AttachPoint &ap) override;
   void visit(Probe &probe) override;
   void visit(Program &program) override;
-  std::tuple<Value *, std::function<void(Value *)>> getMapKey(Map &map);
   AllocaInst *getHistMapKey(Map &map, Value *log2);
   int         getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);
@@ -107,6 +106,7 @@ private:
                      FunctionType *func_type,
                      bool expansion);
   [[nodiscard]] ScopedExprDeleter accept(Node *node);
+  [[nodiscard]] std::tuple<Value *, ScopedExprDeleter> getMapKey(Map &map);
 
   Function *createLog2Function();
   Function *createLinearFunction();
