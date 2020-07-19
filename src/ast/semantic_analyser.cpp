@@ -8,6 +8,7 @@
 #include "printf.h"
 #include "tracepoint_format_parser.h"
 #include "usdt.h"
+#include "utils.h"
 #include <algorithm>
 #include <cstring>
 #include <regex>
@@ -786,7 +787,16 @@ void SemanticAnalyser::visit(Call &call)
               .mask = 0,
             },
           });
-          args_size += ty.size;
+          /*
+           * codegen allocates a non-packed struct, so we need to align struct
+           * members to word size. this may be an overshoot (i.e. if a more
+           * efficient pack is possible). that won't affect the IR emitted;
+           * we'll just end up allocating a slightly bigger map than necessary.
+           *
+           * TODO: get access to llvm::DataLayout and actually measure the
+           * formatString struct size
+           */
+          args_size += align_to(ty.size, 8);
         }
         max_fmtstr_args_size_ = std::max(max_fmtstr_args_size_, args_size);
         std::string msg = verify_format_string(fmt.str, args);

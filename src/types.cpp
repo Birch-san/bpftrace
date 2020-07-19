@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "types.h"
+#include "utils.h"
 
 namespace bpftrace {
 
@@ -363,7 +364,11 @@ SizedType CreateJoin(size_t argnum, size_t argsize)
 
 SizedType CreateBuffer(size_t size)
 {
-  return SizedType(Type::buffer, size + 8);
+  /*
+   * codegen allocates a non-packed struct, so we need to align to word size.
+   * TODO: get access to llvm::DataLayout and actually measure a AsyncEvent::Buf
+   */
+  return SizedType(Type::buffer, align_to(size, 8) + 8);
 }
 
 SizedType CreateTimestamp()
