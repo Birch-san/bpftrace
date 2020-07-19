@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <ostream>
+#include <tuple>
 
 #include "ast.h"
 #include "bpftrace.h"
@@ -51,7 +52,7 @@ public:
   void visit(AttachPoint &ap) override;
   void visit(Probe &probe) override;
   void visit(Program &program) override;
-  AllocaInst *getMapKey(Map &map);
+  std::tuple<Value *, std::function<void(Value *)>> getMapKey(Map &map);
   AllocaInst *getHistMapKey(Map &map, Value *log2);
   int         getNextIndexForProbe(const std::string &probe_name);
   std::string getSectionNameForProbe(const std::string &probe_name, int index);
@@ -127,7 +128,7 @@ private:
   // Used if there are duplicate USDT entries
   int current_usdt_location_index_{ 0 };
 
-  std::map<std::string, AllocaInst *> variables_;
+  std::map<std::string, Value *> variables_;
   int printf_id_ = 0;
   int time_id_ = 0;
   int cat_id_ = 0;

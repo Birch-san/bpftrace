@@ -110,7 +110,6 @@ std::string typestr(Type t)
     case Type::ksym:     return "ksym";     break;
     case Type::usym:     return "usym";     break;
     case Type::cast:     return "cast";     break;
-    case Type::join:     return "join";     break;
     case Type::probe:    return "probe";    break;
     case Type::username: return "username"; break;
     case Type::inet:     return "inet";     break;
@@ -359,12 +358,12 @@ SizedType CreateKSym()
 
 SizedType CreateJoin(size_t argnum, size_t argsize)
 {
-  return SizedType(Type::join, 8 + 8 + argnum * argsize);
+  return SizedType(Type::string, 8 + 8 + argnum * argsize);
 }
 
 SizedType CreateBuffer(size_t size)
 {
-  return SizedType(Type::buffer, size);
+  return SizedType(Type::buffer, size + 8);
 }
 
 SizedType CreateTimestamp()
