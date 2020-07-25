@@ -83,6 +83,11 @@ private:
       deleter_ = std::move(deleter);
     }
 
+    ScopedExprDeleter(const ScopedExprDeleter &other) = delete;
+    ScopedExprDeleter &operator=(const ScopedExprDeleter &other) = delete;
+    ScopedExprDeleter(ScopedExprDeleter &&other) = default;
+    ScopedExprDeleter &operator=(ScopedExprDeleter &&other) = default;
+
     ~ScopedExprDeleter()
     {
       if (deleter_)
