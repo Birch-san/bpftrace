@@ -1,6 +1,7 @@
 #include "semantic_analyser.h"
 #include "arch/arch.h"
 #include "ast.h"
+#include "codegen_helper.h"
 #include "fake_map.h"
 #include "list.h"
 #include "log.h"
@@ -2313,7 +2314,7 @@ int SemanticAnalyser::create_maps(bool debug)
 
   for (auto [map_name, type] : variable_val_)
   {
-    if (!type.IsAggregate())
+    if (!needMemcpy(type))
       continue;
 
     MapKey key;

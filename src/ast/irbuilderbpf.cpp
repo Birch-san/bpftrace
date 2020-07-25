@@ -281,6 +281,7 @@ CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
                                         Variable &var,
                                         const location &loc)
 {
+  assert(bpftrace_.vars_.find(var.ident) != bpftrace_.vars_.end());
   auto &map = bpftrace_.vars_[var.ident];
   llvm::Type *type = GetType(var.type);
   return CreateGetScratchMap(ctx,
