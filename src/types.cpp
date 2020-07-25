@@ -368,7 +368,7 @@ SizedType CreateBuffer(size_t size)
    * codegen allocates a non-packed struct, so we need to align to word size.
    * TODO: get access to llvm::DataLayout and actually measure a AsyncEvent::Buf
    */
-  return SizedType(Type::buffer, align_to(size, 8) + 8);
+  return SizedType(Type::buffer, 4 + align_to(size, 4));
 }
 
 SizedType CreateTimestamp()

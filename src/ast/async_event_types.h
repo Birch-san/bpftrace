@@ -93,7 +93,7 @@ struct Strftime
 
 struct Buf
 {
-  uint64_t length;
+  uint32_t length;
   // Seems like GCC 7.4.x can't handle `char content[]`. Work around by using
   // 0 sized array (a GCC extension that clang also accepts:
   // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70932). It also looks like
@@ -103,7 +103,7 @@ struct Buf
   std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b, size_t length)
   {
     return {
-      b.getInt64Ty(),                              // buffer length
+      b.getInt32Ty(),                              // buffer length
       llvm::ArrayType::get(b.getInt8Ty(), length), // buffer content
     };
   }
