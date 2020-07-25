@@ -2366,7 +2366,7 @@ void CodegenLLVM::createFormatStringCall(Call &call, int &id, CallArgs &call_arg
 
   /*
    * If there are big strings in this struct, it may become so large as to
-   * exceed the 1014 byte memset limit (beyond which we're forced to use an
+   * exceed the 128 byte memset limit (beyond which we're forced to use an
    * expensive probe_read). We can sneak under this limit by initializing
    * member-by-member. Ordinarily "lots of small memsets" would be optimized
    * into "one big disallowed memset", but we seem to get away with it here.

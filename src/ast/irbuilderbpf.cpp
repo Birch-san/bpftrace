@@ -1149,7 +1149,7 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
 /**
  * LLVM outputs "A call to built-in function 'memset' is not supported" if we
  * attempt any CreateStore() of a ConstantDataArray into a buffer larger than
- * 1014 bytes.
+ * 128 bytes.
  */
 void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
                                        std::string_view string,
@@ -1185,16 +1185,16 @@ void IRBuilderBPF::CreateStoreConstStr(Value *ctx,
   {
     Constant *const_str = ConstantDataArray::getString(
         module_.getContext(), { string.data(), string.size() }, true);
-    // for large buffers, 1-byte alignment take tens of seconds, so align to
-    // word size
-    CreateAlignedStore(const_str, buf, sizeof(uint64_t));
+    // TODO: CreateAlignedStore(const_str, buf, 8) emits far fewer instructions.
+    //       we should identify the conditions where it's safe to use this.
+    CreateStore(const_str, buf);
   }
 }
 
 /**
  * LLVM outputs "A call to built-in function 'memcpy' is not supported" if we
- * attempt a memcpy greater than 1014 bytes. Beyond this size, we resort to
- * probe_read. This behaviour was observed when linking against LLVM 6.
+ * attempt a memcpy greater than 128 bytes. Beyond this size, we resort to
+ * probe_read.
  */
 void IRBuilderBPF::CreateCopy(Value *ctx,
                               Value *dst,
@@ -1208,18 +1208,20 @@ void IRBuilderBPF::CreateCopy(Value *ctx,
   }
   else
   {
-    CREATE_MEMCPY(dst, src, size, sizeof(uint64_t));
+    // TODO: CREATE_MEMCPY(dst, src, size, 8) emits far fewer instructions.
+    //       we should identify the conditions where it's safe to use this.
+    CREATE_MEMCPY(dst, src, size, 1);
   }
 }
 
 /**
  * LLVM outputs "A call to built-in function 'memset' is not supported" if we
- * attempt a memset greater than 1014 bytes. Beyond this size, we resort to
- * probe_read. This behaviour was observed when linking against LLVM 6. Smaller
- * memsets emitted in a (C++) loop were tried also, but these seemed to be
- * understood by LLVM as "one large memset", and were rejected. Same happened
- * upon emitting CreateStores in a loop. We also need to figure out "is any of
- * this zero-initialization skippable"?
+ * attempt a memset that requires more than 128 stores (see MaxStoresPerMemset).
+ * When aligned to 1-byte, our maximum memset is 128 bytes. Beyond this, we
+ * resort to probe_read. Smaller memsets emitted in a (C++) loop were tried
+ * also, but these seemed to be understood by LLVM as "one large memset", and
+ * were rejected. Same happened upon emitting CreateStores in a loop. We also
+ * need to figure out "is any of this zero-initialization skippable"?
  * https://github.com/iovisor/bpftrace/issues/1392
  */
 void IRBuilderBPF::CreateZeroInit(Value *ctx,
@@ -1242,16 +1244,10 @@ void IRBuilderBPF::CreateZeroInit(Value *ctx,
   }
   else
   {
-    /*
-     * Aligning to 8-bytes generates fewer instructions. Non-8 multiples are
-     * fine too: memset breaks down the assignment into powers-of-two. For
-     * example, "zero out a 7-byte buffer, aligned to 8 bytes" becomes a 4,2,1
-     * assignment: r9 = 0
-     * *(u32 *)(r8 +0) = r9
-     * *(u16 *)(r8 +4) = r9
-     * *(u8 *)(r8 +6) = r9
-     */
-    CREATE_MEMSET(dst, getInt64(0), size, sizeof(uint64_t));
+    // TODO: CREATE_MEMSET(dst, getInt64(0), size, 8) emits far fewer
+    // instructions. we should identify the conditions where it's safe to use
+    // this.
+    CREATE_MEMSET(dst, getInt8(0), size, 1);
   }
 }
 
