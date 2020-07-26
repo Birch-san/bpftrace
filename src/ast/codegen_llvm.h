@@ -116,6 +116,7 @@ private:
   Function *createLog2Function();
   Function *createLinearFunction();
   Node *root_;
+  Probe *probe_;
   LLVMContext context_;
   std::unique_ptr<Module> module_;
   std::unique_ptr<ExecutionEngine> ee_;

@@ -99,7 +99,8 @@ private:
 
   Probe *probe_;
   std::string func_;
-  std::map<std::string, SizedType> variable_val_;
+  std::unordered_map<Probe *, std::unordered_map<std::string, SizedType>>
+      variable_val_;
   std::map<std::string, SizedType> map_val_;
   std::map<std::string, MapKey> map_key_;
   std::map<std::string, ExpressionList> map_args_;

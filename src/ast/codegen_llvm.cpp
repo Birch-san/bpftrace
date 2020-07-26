@@ -1619,7 +1619,7 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
     Value *val;
     if (needMemcpy(var.type))
     {
-      val = b_.CreateGetVarMap(ctx_, var, assignment.loc);
+      val = b_.CreateGetVarMap(ctx_, probe_, var, assignment.loc);
       b_.CreateZeroInit(ctx_, val, var.type.size, assignment.loc);
     }
     else
@@ -1852,6 +1852,7 @@ void CodegenLLVM::generateProbe(Probe &probe,
 
 void CodegenLLVM::visit(Probe &probe)
 {
+  probe_ = &probe;
   FunctionType *func_type = FunctionType::get(
       b_.getInt64Ty(),
       {b_.getInt8PtrTy()}, // struct pt_regs *ctx
