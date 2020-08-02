@@ -102,7 +102,6 @@ void CodegenLLVM::visit(String &string)
   b_.CreateStoreConstStr(ctx_, shorter_str, buf, string.loc);
 
   expr_ = buf;
-  expr_deleter_ = [this, buf]() { b_.CreateLifetimeEnd(buf); };
 }
 
 // NB: we do not resolve identifiers that are structs. That is because in
