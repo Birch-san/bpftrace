@@ -106,11 +106,11 @@ private:
   BPFtrace &bpftrace_;
 
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
-  CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem");
-  CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem");
+  CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem", bool hoist_declaration=false);
+  CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem", bool hoist_declaration=false);
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0, bool hoist_declaration=false);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0, bool hoist_declaration=false);
 
   std::map<std::string, StructType *> structs_;
   // clang-format on
