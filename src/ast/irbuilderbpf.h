@@ -50,7 +50,7 @@ public:
   AllocaInst *CreateAllocaBPF(llvm::Type *ty, const std::string &name="");
   AllocaInst *CreateAllocaBPF(const SizedType &stype, const std::string &name="");
   AllocaInst *CreateAllocaBPFInit(const SizedType &stype, const std::string &name);
-  AllocaInst *CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name="");
+  AllocaInst *CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name="", bool createLifetimeStart=true);
   AllocaInst *CreateAllocaBPF(const SizedType &stype, llvm::Value *arraysize, const std::string &name="");
   AllocaInst *CreateAllocaBPF(int bytes, const std::string &name="");
   llvm::Type *GetType(const SizedType &stype);
@@ -106,8 +106,8 @@ private:
   BPFtrace &bpftrace_;
 
   Value      *CreateUSDTReadArgument(Value *ctx, struct bcc_usdt_argument *argument, Builtin &builtin, const location& loc);
-  CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem", bool hoist_declaration=false);
-  CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem", bool hoist_declaration=false);
+  CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem");
+  CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem");
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
   CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0, bool hoist_declaration=false);
   CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0, bool hoist_declaration=false);

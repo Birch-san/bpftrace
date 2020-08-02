@@ -73,7 +73,10 @@ IRBuilderBPF::IRBuilderBPF(LLVMContext &context,
       &module_);
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
+                                          llvm::Value *arraysize,
+                                          const std::string &name,
+                                          bool createLifetimeStart)
 {
   Function *parent = GetInsertBlock()->getParent();
   BasicBlock &entry_block = parent->getEntryBlock();
@@ -86,7 +89,8 @@ AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize
   AllocaInst *alloca = CreateAlloca(ty, arraysize, name);
   restoreIP(ip);
 
-  CreateLifetimeStart(alloca);
+  if (createLifetimeStart)
+    CreateLifetimeStart(alloca);
   return alloca;
 }
 
@@ -217,29 +221,16 @@ CallInst *IRBuilderBPF::CreateBpfPseudoCall(Map &map)
 
 CallInst *IRBuilderBPF::createMapLookup(int mapfd,
                                         Value *key,
-                                        const std::string &name,
-                                        bool hoist_declaration)
+                                        const std::string &name)
 {
-  return createMapLookup(mapfd, key, getInt8PtrTy(), name, hoist_declaration);
+  return createMapLookup(mapfd, key, getInt8PtrTy(), name);
 }
 
 CallInst *IRBuilderBPF::createMapLookup(int mapfd,
                                         Value *key,
                                         PointerType *ptr_ty,
-                                        const std::string &name,
-                                        bool hoist_declaration)
+                                        const std::string &name)
 {
-  std::optional<InsertPoint> ip;
-  if (hoist_declaration)
-  {
-    ip = saveIP();
-    Function *parent = GetInsertBlock()->getParent();
-    BasicBlock &entry_block = parent->getEntryBlock();
-    if (entry_block.empty())
-      SetInsertPoint(&entry_block);
-    else
-      SetInsertPoint(&entry_block.front());
-  }
   Value *map_ptr = CreateBpfPseudoCall(mapfd);
   // void *map_lookup_elem(struct bpf_map * map, void * key)
   // Return: Map value or NULL
@@ -253,8 +244,6 @@ CallInst *IRBuilderBPF::createMapLookup(int mapfd,
       getInt64(libbpf::BPF_FUNC_map_lookup_elem),
       lookup_func_ptr_type);
   CallInst *call = CreateCall(lookup_func, { map_ptr, key }, name);
-  if (hoist_declaration)
-    restoreIP(*ip);
   return call;
 }
 
@@ -283,12 +272,21 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int key,
                                             bool hoist_declaration)
 {
-  AllocaInst *keyAlloca = CreateAllocaBPF(getInt32Ty(), "key");
+  AllocaInst *keyAlloca = CreateAllocaBPF(
+      getInt32Ty(), nullptr, "key", /*createLifetimeStart=*/false);
+  std::optional<InsertPoint> ip;
+  if (hoist_declaration)
+  {
+    ip = saveIP();
+    SetInsertPoint(keyAlloca->getNextNonDebugInstruction());
+  }
+  CreateLifetimeStart(keyAlloca);
   CreateStore(getInt32(key), keyAlloca);
 
-  CallInst *call = createMapLookup(
-      map_fd, keyAlloca, ptr_ty, name, hoist_declaration);
+  CallInst *call = createMapLookup(map_fd, keyAlloca, ptr_ty, name);
   CreateLifetimeEnd(keyAlloca);
+  if (hoist_declaration)
+    restoreIP(*ip);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
