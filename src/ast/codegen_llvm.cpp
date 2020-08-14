@@ -1618,8 +1618,14 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
     Value *val;
     if (needMemcpy(var.type))
     {
-      val = b_.CreateGetVarMap(ctx_, probe_, var, assignment.loc);
-      b_.CreateZeroInit(ctx_, val, var.type.size, assignment.loc);
+      // do a no-op here
+      // we don't need to populate variables_
+      // ::visit(Variable&) is the only consumer that relies on this,
+      // and should instead do its own CreateGetVarMap
+      // not sure how/whether to ensure we zero-init though..
+      // CreateMapLookupElem guarantees zeroing it out on failure.
+      // val = b_.CreateGetVarMap(ctx_, probe_, var, assignment.loc);
+      // b_.CreateZeroInit(ctx_, val, var.type.size, assignment.loc);
     }
     else
     {
@@ -1630,8 +1636,10 @@ void CodegenLLVM::visit(AssignVarStatement &assignment)
 
   if (needMemcpy(var.type))
   {
+    // do a CreateMapUpdateElem here
     b_.CreateCopy(
         ctx_, variables_[var.ident], expr_, var.type.size, assignment.loc);
+    // b_.CreateMapUpdateElem(ctx_, map, key, newval, assignment.loc);
   }
   else
   {
@@ -1842,6 +1850,22 @@ void CodegenLLVM::generateProbe(Probe &probe,
     auto scoped_del = accept(probe.pred);
   }
   variables_.clear();
+  // auto &vars = bpftrace_.vars_[&probe];
+  for (auto &[var_name, map] : bpftrace_.vars_[&probe])
+  {
+    // llvm::Type *type = b_.GetType(map->type_);
+    CallInst *var = b_.CreateGetVarMap(
+        ctx_, map, var_name, map->type_, probe.loc);
+    // CallInst* var = b_.CreateGetVarMap(ctx_, probe_, map, probe.loc);
+    // CallInst* var = b_.CreateGetScratchMap(ctx_,
+    //                                        map->mapfd_,
+    //                                        "lookup_" + var_name + "_map",
+    //                                        PointerType::get(type, 0),
+    //                                        probe.loc);
+    b_.CreateZeroInit(ctx_, var, map->type_.size, probe.loc);
+    variables_[var_name] = static_cast<Value *>(var);
+  }
+
   for (Statement *stmt : *probe.stmts)
   {
     auto scoped_del = accept(stmt);

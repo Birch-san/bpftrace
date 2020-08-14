@@ -273,7 +273,7 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             bool hoist_declaration)
 {
   AllocaInst *keyAlloca = CreateAllocaBPF(
-      getInt32Ty(), nullptr, "key", /*createLifetimeStart=*/false);
+      getInt32Ty(), nullptr, "key", /*createLifetimeStart=*/true);
   std::optional<InsertPoint> ip;
   if (hoist_declaration)
   {
@@ -296,23 +296,40 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   return call;
 }
 
+// CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
+//                                         Probe *probe,
+//                                         Variable &var,
+//                                         const location &loc)
+// {
+//   assert(bpftrace_.vars_.find(probe) != bpftrace_.vars_.end());
+//   assert(bpftrace_.vars_[probe].find(var.ident) !=
+//          bpftrace_.vars_[probe].end());
+//   auto &map = bpftrace_.vars_[probe][var.ident];
+//   // llvm::Type *type = GetType(var.type);
+//   // return CreateGetScratchMap(ctx,
+//   //                            map->mapfd_,
+//   //                            "lookup_" + var.ident + "_map",
+//   //                            PointerType::get(type, 0),
+//   //                            loc,
+//   //                            /*key=*/0,
+//   //                            /*hoist_declaration=*/false);
+//   return CreateGetVarMap(ctx, map, var.ident, var.type, loc);
+// }
+
 CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
-                                        Probe *probe,
-                                        Variable &var,
+                                        std::unique_ptr<IMap> &map,
+                                        const std::string &var_name,
+                                        const SizedType &var_type,
                                         const location &loc)
 {
-  assert(bpftrace_.vars_.find(probe) != bpftrace_.vars_.end());
-  assert(bpftrace_.vars_[probe].find(var.ident) !=
-         bpftrace_.vars_[probe].end());
-  auto &map = bpftrace_.vars_[probe][var.ident];
-  llvm::Type *type = GetType(var.type);
+  llvm::Type *type = GetType(var_type);
   return CreateGetScratchMap(ctx,
                              map->mapfd_,
-                             "lookup_" + var.ident + "_map",
+                             "lookup_" + var_name + "_map",
                              PointerType::get(type, 0),
                              loc,
                              /*key=*/0,
-                             /*hoist_declaration=*/true);
+                             /*hoist_declaration=*/false);
 }
 
 CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,
