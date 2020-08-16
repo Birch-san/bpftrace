@@ -86,6 +86,18 @@ struct HelperErrorInfo
   location loc;
 };
 
+struct MapBackedVariable
+{
+  struct Semantic
+  {
+    SizedType sized_type;
+    // location of first use in probe (declarations are hoisted)
+    location loc;
+  };
+  std::unique_ptr<IMap> map;
+  Semantic semantic;
+};
+
 class BPFtrace
 {
 public:
@@ -136,8 +148,11 @@ public:
   static volatile sig_atomic_t exitsig_recv;
 
   std::map<std::string, std::unique_ptr<IMap>> maps_;
+  // std::unordered_map<ast::Probe *,
+  //                    std::unordered_map<std::string, std::unique_ptr<IMap>>>
+  //     vars_;
   std::unordered_map<ast::Probe *,
-                     std::unordered_map<std::string, std::unique_ptr<IMap>>>
+                     std::unordered_map<std::string, struct MapBackedVariable>>
       vars_;
 
   // Maps a map id back to the map identifier. See get_map_by_id()

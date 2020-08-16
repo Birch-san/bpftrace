@@ -68,6 +68,12 @@ public:
   int create_maps(bool debug=false);
 
 private:
+  // struct MapBackedVariable
+  // {
+  //   SizedType type;
+  //   // location of first use in probe (declarations are hoisted)
+  //   location loc;
+  // };
   Node *root_;
   BPFtrace &bpftrace_;
   BPFfeature &feature_;
@@ -99,7 +105,11 @@ private:
 
   Probe *probe_;
   std::string func_;
-  std::unordered_map<Probe *, std::unordered_map<std::string, SizedType>>
+  // std::unordered_map<Probe *, std::unordered_map<std::string, SizedType>>
+  //     variable_val_;
+  std::unordered_map<
+      Probe *,
+      std::unordered_map<std::string, struct MapBackedVariable::Semantic>>
       variable_val_;
   std::map<std::string, SizedType> map_val_;
   std::map<std::string, MapKey> map_key_;

@@ -1199,7 +1199,8 @@ void SemanticAnalyser::visit(Variable &var)
   auto search_val = variable_val.find(var.ident);
   if (search_val != variable_val.end())
   {
-    var.type = search_val->second;
+    [[maybe_unused]] auto &[var_name, var_semantic] = *search_val;
+    var.type = var_semantic.sized_type;
   }
   else {
     LOG(ERROR, var.loc, err_)
@@ -1868,33 +1869,37 @@ void SemanticAnalyser::visit(AssignVarStatement &assignment)
   assignment.var->type = assignment.expr->type;
   if (search != variable_val.end())
   {
-    if (search->second.IsNoneTy())
+    [[maybe_unused]] auto &[var_name, var_semantic] = *search;
+    if (var_semantic.sized_type.IsNoneTy())
     {
       if (is_final_pass()) {
         LOG(ERROR, assignment.loc, err_) << "Undefined variable: " + var_ident;
       }
       else {
-        search->second = assignment.expr->type;
+        var_semantic.sized_type = assignment.expr->type;
       }
     }
-    else if (search->second.type != assignment.expr->type.type) {
+    else if (var_semantic.sized_type.type != assignment.expr->type.type)
+    {
       LOG(ERROR, assignment.loc, err_)
           << "Type mismatch for " << var_ident << ": "
           << "trying to assign value of type '" << assignment.expr->type
           << "' when variable already contains a value of type '"
-          << search->second << "'";
+          << var_semantic.sized_type << "'";
     }
   }
   else {
     // This variable hasn't been seen before
-    variable_val.insert({ var_ident, assignment.expr->type });
+    variable_val.insert(
+        { var_ident,
+          { .sized_type = assignment.expr->type, .loc = assignment.loc } });
     assignment.var->type = assignment.expr->type;
   }
 
   if (assignment.expr->type.IsCastTy() || assignment.expr->type.IsCtxTy())
   {
     std::string cast_type = assignment.expr->type.cast_type;
-    std::string curr_cast_type = variable_val[var_ident].cast_type;
+    std::string curr_cast_type = variable_val[var_ident].sized_type.cast_type;
     if (curr_cast_type != "" && curr_cast_type != cast_type) {
       LOG(ERROR, assignment.loc, err_)
           << "Type mismatch for " << var_ident << ": "
@@ -1903,12 +1908,12 @@ void SemanticAnalyser::visit(AssignVarStatement &assignment)
           << curr_cast_type;
     }
     else {
-      variable_val[var_ident].cast_type = cast_type;
+      variable_val[var_ident].sized_type.cast_type = cast_type;
     }
   }
   else if (assignment.expr->type.IsStringTy())
   {
-    auto var_size = variable_val[var_ident].size;
+    auto var_size = variable_val[var_ident].sized_type.size;
     auto expr_size = assignment.expr->type.size;
     if (var_size != expr_size)
     {
@@ -1920,7 +1925,7 @@ void SemanticAnalyser::visit(AssignVarStatement &assignment)
   }
   else if (assignment.expr->type.IsBufferTy())
   {
-    auto var_size = variable_val[var_ident].size;
+    auto var_size = variable_val[var_ident].sized_type.size;
     auto expr_size = assignment.expr->type.size;
     if (var_size != expr_size)
     {
@@ -1936,7 +1941,7 @@ void SemanticAnalyser::visit(AssignVarStatement &assignment)
     // elements yet. So wait until final pass.
     if (is_final_pass())
     {
-      auto var_type = variable_val[var_ident];
+      auto var_type = variable_val[var_ident].sized_type;
       auto expr_type = assignment.expr->type;
       if (var_type != expr_type)
       {
@@ -2318,24 +2323,29 @@ int SemanticAnalyser::create_maps(bool debug)
   for (const auto &[probe, probe_vars] : variable_val_)
   {
     bpftrace_.vars_.try_emplace(probe);
-    for (const auto &[var_name, type] : probe_vars)
+    for (const auto &[var_name, var_semantic] : probe_vars)
     {
-      if (!needMemcpy(type))
+      if (!needMemcpy(var_semantic.sized_type))
         continue;
 
+      std::unique_ptr<IMap> map;
       MapKey key;
       if (debug)
       {
-        bpftrace_.vars_[probe][var_name] = std::make_unique<bpftrace::FakeMap>(
-            var_name, type, key);
+        map = std::make_unique<bpftrace::FakeMap>(var_name,
+                                                  var_semantic.sized_type,
+                                                  key);
       }
       else
       {
-        bpftrace_.vars_[probe][var_name] = std::make_unique<bpftrace::Map>(
-            var_name, type, key, 1, true);
+        map = std::make_unique<bpftrace::Map>(
+            var_name, var_semantic.sized_type, key, 1, true);
       }
-      failed_maps += is_invalid_map(bpftrace_.vars_[probe][var_name]->mapfd_);
-      max_zero_buffer_size_ = std::max(max_zero_buffer_size_, type.size);
+      failed_maps += is_invalid_map(map->mapfd_);
+      max_zero_buffer_size_ = std::max(max_zero_buffer_size_,
+                                       var_semantic.sized_type.size);
+      bpftrace_.vars_[probe][var_name] = { .map = std::move(map),
+                                           .semantic = var_semantic };
     }
   }
 
