@@ -551,7 +551,7 @@ void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unu
   }
   else if (printf_id == asyncactionint(AsyncAction::time))
   {
-    char timestr[STRING_SIZE];
+    char timestr[bpftrace->strlen_];
     time_t t;
     struct tm tmp;
     t = time(NULL);
@@ -591,6 +591,7 @@ void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unu
     auto helpererror = static_cast<AsyncEvent::HelperError *>(data);
     auto error_id = helpererror->error_id;
     auto return_value = helpererror->return_value;
+    auto is_fatal = helpererror->is_fatal;
     auto &info = bpftrace->helper_error_info_[error_id];
     std::stringstream msg;
     msg << "Failed to " << libbpf::bpf_func_name[info.func_id] << ": ";
@@ -598,7 +599,13 @@ void perf_event_printer(void *cb_cookie, void *data, int size __attribute__((unu
       msg << strerror(-return_value) << " (" << return_value << ")";
     else
       msg << return_value;
-    LOG(WARNING, info.loc, std::cerr) << msg.str();
+    if (is_fatal)
+    {
+      LOG(ERROR, info.loc, std::cerr) << msg.str();
+      bpftrace->request_finalize();
+    }
+    else
+      LOG(WARNING, info.loc, std::cerr) << msg.str();
     return;
   }
   else if ( printf_id >= asyncactionint(AsyncAction::syscall) &&
@@ -792,7 +799,8 @@ std::vector<std::unique_ptr<AttachedProbe>> BPFtrace::attach_usdt_probe(
 
   if (!(file_activation && probe.path.size()))
   {
-    ret.emplace_back(std::make_unique<AttachedProbe>(probe, func, pid));
+    ret.emplace_back(
+        std::make_unique<AttachedProbe>(probe, func, strlen_, pid));
     return ret;
   }
 
@@ -848,7 +856,7 @@ std::vector<std::unique_ptr<AttachedProbe>> BPFtrace::attach_usdt_probe(
       }
 
       ret.emplace_back(
-          std::make_unique<AttachedProbe>(probe, func, pid_parsed));
+          std::make_unique<AttachedProbe>(probe, func, strlen_, pid_parsed));
       break;
     }
   }
@@ -900,13 +908,13 @@ std::vector<std::unique_ptr<AttachedProbe>> BPFtrace::attach_probe(
     else if (probe.type == ProbeType::watchpoint)
     {
       ret.emplace_back(
-          std::make_unique<AttachedProbe>(probe, func->second, pid));
+          std::make_unique<AttachedProbe>(probe, func->second, strlen_, pid));
       return ret;
     }
     else
     {
-      ret.emplace_back(
-          std::make_unique<AttachedProbe>(probe, func->second, safe_mode_));
+      ret.emplace_back(std::make_unique<AttachedProbe>(
+          probe, func->second, strlen_, safe_mode_));
       return ret;
     }
   }
@@ -1258,8 +1266,10 @@ std::string BPFtrace::map_value_to_str(const SizedType &stype,
   else if (stype.IsUsernameTy())
     return resolve_uid(read_data<uint64_t>(value.data()));
   else if (stype.IsBufferTy())
-    return resolve_buf(reinterpret_cast<char *>(value.data() + 1),
-                       *reinterpret_cast<uint8_t *>(value.data()));
+  {
+    auto buf = reinterpret_cast<AsyncEvent::Buf *>(value.data());
+    return resolve_buf(buf->content, buf->length);
+  }
   else if (stype.IsStringTy())
   {
     auto p = reinterpret_cast<const char *>(value.data());
@@ -1688,7 +1698,7 @@ std::string BPFtrace::resolve_timestamp(uint32_t strftime_id,
     return "(?)";
   }
   auto fmt = strftime_args_[strftime_id].c_str();
-  char timestr[STRING_SIZE];
+  char timestr[strlen_];
   struct tm tmp;
   time_t time = btime + nsecs_since_boot / 1e9;
   if (!localtime_r(&time, &tmp))
