@@ -75,8 +75,7 @@ IRBuilderBPF::IRBuilderBPF(LLVMContext &context,
 
 AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
                                           llvm::Value *arraysize,
-                                          const std::string &name,
-                                          bool createLifetimeStart)
+                                          const std::string &name)
 {
   Function *parent = GetInsertBlock()->getParent();
   BasicBlock &entry_block = parent->getEntryBlock();
@@ -89,8 +88,7 @@ AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
   AllocaInst *alloca = CreateAlloca(ty, arraysize, name);
   restoreIP(ip);
 
-  if (createLifetimeStart)
-    CreateLifetimeStart(alloca);
+  CreateLifetimeStart(alloca);
   return alloca;
 }
 
@@ -257,11 +255,9 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             int map_fd,
                                             const std::string &name,
                                             const location &loc,
-                                            int key,
-                                            bool hoist_declaration)
+                                            int key)
 {
-  return CreateGetScratchMap(
-      ctx, map_fd, name, getInt8PtrTy(), loc, key, hoist_declaration);
+  return CreateGetScratchMap(ctx, map_fd, name, getInt8PtrTy(), loc, key);
 }
 
 CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
@@ -269,24 +265,13 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
                                             const std::string &name,
                                             PointerType *ptr_ty,
                                             const location &loc,
-                                            int key,
-                                            bool hoist_declaration)
+                                            int key)
 {
-  AllocaInst *keyAlloca = CreateAllocaBPF(
-      getInt32Ty(), nullptr, "key", /*createLifetimeStart=*/true);
-  std::optional<InsertPoint> ip;
-  if (hoist_declaration)
-  {
-    ip = saveIP();
-    SetInsertPoint(keyAlloca->getNextNonDebugInstruction());
-  }
-  CreateLifetimeStart(keyAlloca);
+  AllocaInst *keyAlloca = CreateAllocaBPF(getInt32Ty(), nullptr, "key");
   CreateStore(getInt32(key), keyAlloca);
 
   CallInst *call = createMapLookup(map_fd, keyAlloca, ptr_ty, name);
   CreateLifetimeEnd(keyAlloca);
-  if (hoist_declaration)
-    restoreIP(*ip);
   CreateHelperErrorCond(ctx,
                         call,
                         libbpf::BPF_FUNC_map_lookup_elem,
@@ -296,40 +281,16 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   return call;
 }
 
-// CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
-//                                         Probe *probe,
-//                                         Variable &var,
-//                                         const location &loc)
-// {
-//   assert(bpftrace_.vars_.find(probe) != bpftrace_.vars_.end());
-//   assert(bpftrace_.vars_[probe].find(var.ident) !=
-//          bpftrace_.vars_[probe].end());
-//   auto &map = bpftrace_.vars_[probe][var.ident];
-//   // llvm::Type *type = GetType(var.type);
-//   // return CreateGetScratchMap(ctx,
-//   //                            map->mapfd_,
-//   //                            "lookup_" + var.ident + "_map",
-//   //                            PointerType::get(type, 0),
-//   //                            loc,
-//   //                            /*key=*/0,
-//   //                            /*hoist_declaration=*/false);
-//   return CreateGetVarMap(ctx, map, var.ident, var.type, loc);
-// }
-
 CallInst *IRBuilderBPF::CreateGetVarMap(Value *ctx,
-                                        std::unique_ptr<IMap> &map,
                                         const std::string &var_name,
-                                        const SizedType &var_type,
-                                        const location &loc)
+                                        const MapBackedVariable &var)
 {
-  llvm::Type *type = GetType(var_type);
+  llvm::Type *type = GetType(var.semantic.sized_type);
   return CreateGetScratchMap(ctx,
-                             map->mapfd_,
+                             var.map->mapfd_,
                              "lookup_" + var_name + "_map",
                              PointerType::get(type, 0),
-                             loc,
-                             /*key=*/0,
-                             /*hoist_declaration=*/false);
+                             var.semantic.loc);
 }
 
 CallInst *IRBuilderBPF::CreateGetStrMap(Value *ctx,

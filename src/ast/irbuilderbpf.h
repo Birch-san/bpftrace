@@ -50,7 +50,7 @@ public:
   AllocaInst *CreateAllocaBPF(llvm::Type *ty, const std::string &name="");
   AllocaInst *CreateAllocaBPF(const SizedType &stype, const std::string &name="");
   AllocaInst *CreateAllocaBPFInit(const SizedType &stype, const std::string &name);
-  AllocaInst *CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name="", bool createLifetimeStart=true);
+  AllocaInst *CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name="");
   AllocaInst *CreateAllocaBPF(const SizedType &stype, llvm::Value *arraysize, const std::string &name="");
   AllocaInst *CreateAllocaBPF(int bytes, const std::string &name="");
   llvm::Type *GetType(const SizedType &stype);
@@ -82,8 +82,7 @@ public:
   CallInst   *CreateGetRandom();
   CallInst   *CreateGetStackId(Value *ctx, bool ustack, StackType stack_type, const location& loc);
   CallInst   *CreateGetJoinMap(Value *ctx, const location& loc);
-  // CallInst   *CreateGetVarMap(Value *ctx, Probe *probe, Variable &var, const location& loc);
-  CallInst   *CreateGetVarMap(Value *ctx, std::unique_ptr<IMap> &map, const std::string &var_name, const SizedType &var_type, const location& loc);
+  CallInst   *CreateGetVarMap(Value *ctx, const std::string &var_name, const MapBackedVariable &var);
   CallInst   *CreateGetStrMap(Value *ctx, int key, const location& loc);
   CallInst   *CreateGetKeyMap(Value *ctx, int key, PointerType *key_struct_ptr_ty, const location& loc);
   CallInst   *CreateGetBufMap(Value *ctx, int key, PointerType *buf_struct_ptr_ty, const location& loc);
@@ -110,8 +109,8 @@ private:
   CallInst   *createMapLookup(int mapfd, Value *key, const std::string &name="lookup_elem");
   CallInst   *createMapLookup(int mapfd, Value *key, PointerType* ptr_ty, const std::string &name="lookup_elem");
   Constant   *createProbeReadStrFn(llvm::Type * dst, llvm::Type * src);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0, bool hoist_declaration=false);
-  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0, bool hoist_declaration=false);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, const location& loc, int key=0);
+  CallInst   *CreateGetScratchMap(Value *ctx, int mapfd, const std::string &name, PointerType* ptr_ty, const location& loc, int key=0);
 
   std::map<std::string, StructType *> structs_;
   // clang-format on
