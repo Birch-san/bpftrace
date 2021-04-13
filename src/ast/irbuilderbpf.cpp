@@ -135,8 +135,7 @@ IRBuilderBPF::IRBuilderBPF(LLVMContext &context,
       &module_);
 }
 
-template <typename T>
-T IRBuilderBPF::hoist(const std::function<T()> &functor)
+void IRBuilderBPF::hoist(const std::function<void()> &functor)
 {
   Function *parent = GetInsertBlock()->getParent();
   BasicBlock &entry_block = parent->getEntryBlock();
@@ -147,19 +146,16 @@ T IRBuilderBPF::hoist(const std::function<T()> &functor)
   else
     SetInsertPoint(&entry_block.front());
 
-  T = functor();
+  functor();
   restoreIP(ip);
-  return T;
 }
 
-AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty,
-                                          llvm::Value *arraysize,
-                                          const std::string &name)
+AllocaInst *IRBuilderBPF::CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name)
 {
-  AllocaInst *alloca = hoist(static_cast<std::function<AllocaInst *()>>(
-      [this, ty, arraysize, &name]() {
-        return CreateAlloca(ty, arraysize, name);
-      }));
+  AllocaInst *alloca;
+  hoist([this, ty, arraysize, &name, &alloca]() {
+    alloca = CreateAlloca(ty, arraysize, name);
+  });
 
   CreateLifetimeStart(alloca);
   return alloca;
@@ -178,21 +174,21 @@ AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype, const std::str
 
 AllocaInst *IRBuilderBPF::CreateAllocaBPFInit(const SizedType &stype, const std::string &name)
 {
-  return hoist(
-      static_cast<std::function<AllocaInst *()>>([this, &stype, &name]() {
-        llvm::Type *ty = GetType(stype);
-        AllocaInst *alloca = CreateAlloca(ty, nullptr, name);
-        CreateLifetimeStart(alloca);
-        if (needMemcpy(stype))
-        {
-          CREATE_MEMSET(alloca, getInt8(0), stype.GetSize(), 1);
-        }
-        else
-        {
-          CreateStore(ConstantInt::get(ty, 0), alloca);
-        }
-        return alloca;
-      }));
+  AllocaInst *alloca;
+  hoist([this, &stype, &name, &alloca]() {
+    llvm::Type *ty = GetType(stype);
+    alloca = CreateAlloca(ty, nullptr, name);
+    CreateLifetimeStart(alloca);
+    if (needMemcpy(stype))
+    {
+      CREATE_MEMSET(alloca, getInt8(0), stype.GetSize(), 1);
+    }
+    else
+    {
+      CreateStore(ConstantInt::get(ty, 0), alloca);
+    }
+  });
+  return alloca;
 }
 
 AllocaInst *IRBuilderBPF::CreateAllocaBPF(const SizedType &stype, llvm::Value *arraysize, const std::string &name)

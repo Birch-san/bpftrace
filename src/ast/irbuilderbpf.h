@@ -4,7 +4,6 @@
 #include "bpftrace.h"
 #include "types.h"
 #include <bcc/bcc_usdt.h>
-#include <optional>
 
 #include <llvm/Config/llvm-config.h>
 #include <llvm/IR/IRBuilder.h>
@@ -49,9 +48,7 @@ public:
   AllocaInst *CreateAllocaBPF(llvm::Type *ty, const std::string &name="");
   AllocaInst *CreateAllocaBPF(const SizedType &stype, const std::string &name="");
   AllocaInst *CreateAllocaBPFInit(const SizedType &stype, const std::string &name);
-  AllocaInst *CreateAllocaBPF(llvm::Type *ty,
-                              llvm::Value *arraysize,
-                              const std::string &name = "");
+  AllocaInst *CreateAllocaBPF(llvm::Type *ty, llvm::Value *arraysize, const std::string &name="");
   AllocaInst *CreateAllocaBPF(const SizedType &stype, llvm::Value *arraysize, const std::string &name="");
   AllocaInst *CreateAllocaBPF(int bytes, const std::string &name="");
   llvm::Type *GetType(const SizedType &stype);
@@ -174,8 +171,7 @@ public:
                        AllocaInst *data,
                        Value *data_len,
                        const location &loc);
-  template <typename T>
-  T hoist(const std::function<T()> &functor);
+  void hoist(const std::function<void()> &functor);
   int helper_error_id_ = 0;
 
 private:
