@@ -1,4 +1,5 @@
 #include "bpforc.h"
+#include <cassert>
 
 namespace bpftrace {
 
@@ -35,6 +36,19 @@ std::optional<std::tuple<uint8_t *, uintptr_t>> BpfOrc::getSection(
   if (sec == sections_.end())
     return std::nullopt;
   return sec->second;
+}
+
+void BpfOrc::applyCommandLineArgs()
+{
+  std::vector<std::string> arguments = { "-bpf-expand-memcpy-in-order" };
+
+  std::vector<const char *> argv;
+  for (const auto &arg : arguments)
+    argv.push_back(arg.data());
+  argv.push_back(nullptr);
+  bool outcome = llvm::cl::ParseCommandLineOptions(argv.size() - 1,
+                                                   argv.data());
+  assert(outcome);
 }
 
 #ifdef LLVM_ORC_V1

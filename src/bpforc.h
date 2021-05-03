@@ -13,6 +13,7 @@
 #endif
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
@@ -90,6 +91,7 @@ private:
 #endif
 
 #endif
+  static void applyCommandLineArgs();
 
 public:
   BpfOrc(TargetMachine *TM, DataLayout DL);

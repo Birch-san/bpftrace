@@ -26,6 +26,8 @@ LLVMContext &BpfOrc::getContext()
 
 std::unique_ptr<BpfOrc> BpfOrc::Create()
 {
+  BpfOrc::applyCommandLineArgs();
+
   LLVMInitializeBPFTargetInfo();
   LLVMInitializeBPFTarget();
   LLVMInitializeBPFTargetMC();
