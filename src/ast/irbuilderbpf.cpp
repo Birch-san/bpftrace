@@ -392,8 +392,8 @@ CallInst *IRBuilderBPF::CreateGetScratchMap(Value *ctx,
   SetInsertPoint(get_map);
 
   AllocaInst *keyAlloca = CreateAllocaBPF(getInt32Ty(),
-                                          nullptr,
-                                          "lookup_" + name + "_key");
+                                       nullptr,
+                                       "lookup_" + name + "_key");
   CreateStore(getInt32(key), keyAlloca);
 
   CallInst *call = createMapLookup(
@@ -1224,7 +1224,7 @@ void IRBuilderBPF::CreateHelperError(Value *ctx,
   int error_id = helper_error_id_++;
   bpftrace_.helper_error_info_[error_id] = { .func_id = func_id, .loc = loc };
 
-  auto elements = AsyncEvent::HelperError().asLLVMType(*this);
+  auto elements = AsyncEvent::HelperError::asLLVMType(*this);
   StructType *helper_error_struct = GetStructType("helper_error_t",
                                                   elements,
                                                   true);
@@ -1241,6 +1241,95 @@ void IRBuilderBPF::CreateHelperError(Value *ctx,
   auto struct_size = layout.getTypeAllocSize(helper_error_struct);
   CreatePerfEventOutput(ctx, buf, struct_size);
   CreateLifetimeEnd(buf);
+}
+
+Function *IRBuilderBPF::AcquireHelperErrorFn()
+{
+  auto fnName = "helper_error";
+  Function *existing = module_.getFunction(fnName);
+  if (existing != nullptr)
+  {
+    return existing;
+  }
+
+  auto ip = saveIP();
+  auto [asyncid_ty, error_id_ty, retval_ty, is_fatal_ty] =
+      AsyncEvent::HelperError::getLLVMFields(*this);
+  StructType *helper_error_ty = GetStructType(
+      "helper_error_t",
+      { asyncid_ty, error_id_ty, retval_ty, is_fatal_ty },
+      true);
+  std::vector<llvm::Type *> params = {
+    getInt8PtrTy(), // ctx
+    error_id_ty,
+    retval_ty,
+    is_fatal_ty,
+  };
+  params.insert(params.begin(), getInt8PtrTy());
+  FunctionType *fn_type = FunctionType::get(getVoidTy(), params, false);
+  Function *fn = Function::Create(
+      fn_type, Function::InternalLinkage, fnName, module_);
+  fn->addFnAttr(Attribute::AlwaysInline);
+  fn->setSection("helpers");
+
+  BasicBlock *entry = BasicBlock::Create(getContext(), "entry", fn);
+  SetInsertPoint(entry);
+  AllocaInst *helper_error = CreateAlloca(helper_error_ty,
+                                          nullptr,
+                                          "helper_error");
+  CreateLifetimeStart(helper_error);
+
+  auto args = std::make_tuple(
+      fn->getArg(0), fn->getArg(1), fn->getArg(2), fn->getArg(3));
+  auto [ctx_param, error_id_param, retval_param, is_fatal_param] = args;
+
+  CreateStore(GetIntSameSize(asyncactionint(AsyncAction::helper_error),
+                             asyncid_ty),
+              CreateGEP(helper_error, { getInt64(0), getInt32(0) }));
+  CreateStore(error_id_param,
+              CreateGEP(helper_error, { getInt64(0), getInt32(1) }));
+  CreateStore(retval_param,
+              CreateGEP(helper_error, { getInt64(0), getInt32(2) }));
+  CreateStore(is_fatal_param,
+              CreateGEP(helper_error, { getInt64(0), getInt32(3) }));
+
+  auto &layout = module_.getDataLayout();
+  auto struct_size = layout.getTypeAllocSize(helper_error_ty);
+  CreatePerfEventOutput(ctx_param, helper_error, struct_size);
+  CreateLifetimeEnd(helper_error);
+  CreateRetVoid();
+
+  restoreIP(ip);
+  return fn;
+}
+
+void IRBuilderBPF::CallHelperErrorFn(Value *ctx,
+                                     Value *return_value,
+                                     libbpf::bpf_func_id func_id,
+                                     const location &loc,
+                                     bool is_fatal)
+{
+  assert(ctx && ctx->getType() == getInt8PtrTy());
+  assert(return_value && return_value->getType() == getInt32Ty());
+
+  if (!is_fatal &&
+      (bpftrace_.helper_check_level_ == 0 ||
+       (bpftrace_.helper_check_level_ == 1 && return_zero_if_err(func_id))))
+    return;
+
+  int error_id = helper_error_id_++;
+  bpftrace_.helper_error_info_[error_id] = { .func_id = func_id, .loc = loc };
+
+  [[maybe_unused]] auto [asyncid_ty, error_id_ty, retval_ty, is_fatal_ty] =
+      AsyncEvent::HelperError::getLLVMFields(*this);
+
+  Function *helperErrorFn = AcquireHelperErrorFn();
+  CreateCall(helperErrorFn,
+             { ctx,
+               GetIntSameSize(error_id, error_id_ty),
+               return_value,
+               getInt8(is_fatal) },
+             "helper");
 }
 
 // Report error if a return value < 0 (or return value == 0 if compare_zero is
@@ -1278,7 +1367,8 @@ void IRBuilderBPF::CreateHelperErrorCond(Value *ctx,
     condition = CreateICmpSGE(ret, Constant::getNullValue(ret->getType()));
   CreateCondBr(condition, helper_merge_block, helper_failure_block);
   SetInsertPoint(helper_failure_block);
-  CreateHelperError(ctx, ret, func_id, loc, /*is_fatal=*/require_success);
+  // CreateHelperError(ctx, ret, func_id, loc, /*is_fatal=*/require_success);
+  CallHelperErrorFn(ctx, ret, func_id, loc, /*is_fatal=*/require_success);
 
   if (require_success)
   {

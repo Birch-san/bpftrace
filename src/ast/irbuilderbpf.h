@@ -226,6 +226,12 @@ private:
                                 PointerType *ptr_ty,
                                 const location &loc,
                                 int key = 0);
+  Function *AcquireHelperErrorFn();
+  void CallHelperErrorFn(Value *ctx,
+                         Value *return_value,
+                         libbpf::bpf_func_id func_id,
+                         const location &loc,
+                         bool is_fatal);
   libbpf::bpf_func_id selectProbeReadHelper(AddrSpace as, bool str);
 
   std::map<std::string, StructType *> structs_;

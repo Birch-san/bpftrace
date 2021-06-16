@@ -115,7 +115,8 @@ struct HelperError
   int32_t return_value;
   int8_t is_fatal;
 
-  std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b)
+  static std::tuple<llvm::IntegerType*, llvm::IntegerType*, llvm::IntegerType*, llvm::IntegerType*> getLLVMFields(
+      ast::IRBuilderBPF& b)
   {
     return {
       b.getInt64Ty(), // asyncid
@@ -123,6 +124,13 @@ struct HelperError
       b.getInt32Ty(), // return value
       b.getInt8Ty(),  // is_fatal
     };
+  }
+
+  static std::vector<llvm::Type*> asLLVMType(ast::IRBuilderBPF& b)
+  {
+    auto [action_id, error_id, return_value, is_fatal] =
+        HelperError::getLLVMFields(b);
+    return { action_id, error_id, return_value, is_fatal };
   }
 } __attribute__((packed));
 
